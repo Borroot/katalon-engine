@@ -1,3 +1,3 @@
 fn main() {
-    println!("library code: {:?}", katalon::addition(1, 2));
+    println!("library code: {:?}", katalon::board::Board::new());
 }
