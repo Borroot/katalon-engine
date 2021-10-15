@@ -67,13 +67,30 @@ impl Board {
 
         for (index, c) in cs.enumerate() {
             // TODO add isfinalmove check
-            if !board.canplay(c) {
-                return Err(format!("Move {} is invalid: ({}, {}).", index + 1, board.lastmove.0, c));
-            } else {
+            if board.canplay(c) {
                 board.play(c);
+            } else {
+                return Err(format!("Move {} is invalid: ({}, {}).", index + 1, board.lastmove.1, c));
             }
         }
         return Ok(board);
+    }
+
+    /// Return Some((square, cell)) if double cell is given, otherwise return None.
+    fn double(square: u8, cell: u8) -> Option<(u8, u8)> {
+        match (square, cell) {
+            (0, 4) => Some((2, 0)),
+            (1, 3) => Some((2, 1)),
+            (3, 1) => Some((2, 3)),
+            (4, 0) => Some((2, 4)),
+
+            (2, 0) => Some((0, 4)),
+            (2, 1) => Some((1, 3)),
+            (2, 3) => Some((3, 1)),
+            (2, 4) => Some((4, 0)),
+
+            _ => None,
+        }
     }
 
     pub fn canplay_explicit(&self, square: u8, cell: u8) -> bool {
@@ -88,24 +105,32 @@ impl Board {
             return true;
         }
 
-        // If the cell contains a stone of yourself
-        // OR if the square is not full, return false.
-        if self.state & bit != 0 || self.state & 0b11111 << square * 5 != 0b11111 {
+        // If the cell contains a stone of yourself, return false.
+        if self.state & bit != 0 {
             return false;
         }
 
-        // If the cell is equal to the lastmove,
-        // AND if there are no other possible moves, return true.
-        if self.lastmove.0 == square && self.lastmove.1 == cell {
-            if (self.state ^ bit) & 0b11111 << square * 5 != 0b11111 {
-                return true;
+        let mask_square = 0b11111 << square * 5;
+
+        // If the square is not full, return false.
+        if self.mask & mask_square != mask_square {
+            return false;
+        }
+
+        // If the cell is not equal to the lastmove, return true.
+        // Also check the double cell connected to the lastmove.
+        if self.lastmove.0 != square || self.lastmove.1 != cell {
+            if let Some(lastdouble) = Board::double(self.lastmove.0, self.lastmove.1) {
+                if lastdouble.0 != square || lastdouble.1 != cell {
+                    return true;
+                }
             } else {
-                return false;
+                return true;
             }
         }
 
-        // We can take an opponents stone (!= lastmove).
-        return true;
+        // If there are no other possible moves, return true, else return false.
+        return (self.state ^ bit) & mask_square == mask_square;
     }
 
     pub fn canplay(&self, cell: u8) -> bool {
@@ -131,24 +156,15 @@ impl Board {
             self.takestreak = 0;
         }
 
+        // Update the state and mask of the cell.
         self.update(square, cell);
 
-        // Check if we play in a double cell.
-        match (square, cell) {
-            (0, 4) => self.update(2, 0),
-            (1, 3) => self.update(2, 1),
-            (3, 1) => self.update(2, 3),
-            (4, 0) => self.update(2, 4),
-
-            (2, 0) => self.update(0, 4),
-            (2, 1) => self.update(1, 3),
-            (2, 3) => self.update(3, 1),
-            (2, 4) => self.update(4, 0),
-
-            _ => (),
+        // Update the double cell if we are in one.
+        if let Some((s, c)) = Board::double(square, cell) {
+            self.update(s, c);
         }
 
-        // Update the player onturn, the state and the lastmove.
+        // Update the stones, player onturn, state, lastmove and movecount.
         self.stones[self.onturn as usize] -= 1;
         self.onturn = self.onturn.other();
         self.state ^= self.mask;
@@ -230,7 +246,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn load() {
+    fn load_basic() {
         assert!(Board::load("jfkd").is_err());
         assert!(Board::load("3").is_err());
         assert!(Board::load("35").is_err());
@@ -239,16 +255,29 @@ mod tests {
         assert!(Board::load("").is_ok());
         assert!(Board::load("02").is_ok());
         assert!(Board::load("01234").is_ok());
-        assert!(Board::load("01234321003040223").is_ok());
+    }
 
-        let board = Board::load("01234321003040223").unwrap();
-        assert_eq!(board.state, 0b01000_00000_00011_01000_11110);
-        assert_eq!(board.mask,  0b01001_11111_11111_01101_11111);
-        assert_eq!(board.onturn, Player1);
-        assert_eq!(board.stones, [6, 2]);
-        assert_eq!(board.lastmove, (3, 3));
-        assert_eq!(board.takestreak, 1);
-        assert_eq!(board.movecount, 18);
+    #[test]
+    fn load_more() {
+        let board1 = Board::load("0123432100304022").unwrap();
+
+        assert_eq!(board1.state, 0b00000_10100_00001_00101_11100);
+        assert_eq!(board1.mask,  0b01001_10111_11111_01101_11111);
+        assert_eq!(board1.onturn, Player2);
+        assert_eq!(board1.stones, [4, 5]);
+        assert_eq!(board1.lastmove, (2, 2));
+        assert_eq!(board1.takestreak, 0);
+        assert_eq!(board1.movecount, 15);
+
+        let board2 = Board::load("01234321003040223").unwrap();
+
+        assert_eq!(board2.state, 0b01001_00001_10110_01000_00011);
+        assert_eq!(board2.mask,  0b01001_10111_11111_01101_11111);
+        assert_eq!(board2.onturn, Player1);
+        assert_eq!(board2.stones, [5, 4]);
+        assert_eq!(board2.lastmove, (2, 3));
+        assert_eq!(board2.takestreak, 1);
+        assert_eq!(board2.movecount, 16);
 
         // TODO add test case which errors because game ended
     }
@@ -289,7 +318,7 @@ mod tests {
 
         board.play(3);
 
-        assert_eq!(board.state, 0b00000_00001_00001_00001_11000);
+        assert_eq!(board.state, 0b00000_00000_00000_00000_00111);
         assert_eq!(board.mask,  0b00000_00001_00001_00001_11111);
         assert_eq!(board.stones, [8, 9]);
         assert_eq!(board.takestreak, 2);
@@ -335,31 +364,95 @@ mod tests {
         assert_eq!(board8.mask,  0b00001_00000_10000_00000_00000);
     }
 
-    // If the cell is empty, return true. Most will return here.
-
-    // If the cell contains a stone of yourself
-    // OR if the square is not full, return false.
-
-    // If the cell is equal to the lastmove,
-    // AND if there are no other possible moves, return true.
-
-    // We can take an opponents stone (!= lastmove).
-
-    /// Test playing in a wrong square.
-    #[test]
-    fn canplay_square() {}
-
     /// Test playing in an empty cell.
     #[test]
-    fn canplay_empty() {}
+    fn canplay_empty() {
+        let mut board = Board::load("00").unwrap();
+
+        assert!(!board.canplay(0));
+
+        assert!(board.canplay(1));
+        assert!(board.canplay(2));
+        assert!(board.canplay(3));
+        assert!(board.canplay(4));
+
+        board.play(4);
+        board.play(0);
+        board.play(2);
+
+        assert!(!board.canplay(0));
+        assert!(!board.canplay(4));
+
+        assert!(board.canplay(1));
+        assert!(board.canplay(2));
+        assert!(board.canplay(3));
+
+        board.play(2);
+
+        assert!(!board.canplay(0));
+        assert!(!board.canplay(2));
+        assert!(!board.canplay(4));
+
+        assert!(board.canplay(1));
+        assert!(board.canplay(3));
+    }
 
     /// Test taking a stone.
     #[test]
-    fn canplay_takes_normal() {}
+    fn canplay_takes_normal() {
+        let mut board1 = Board::load("00203010").unwrap();
+
+        assert!(board1.canplay(0));
+        assert!(board1.canplay(4));
+
+        assert!(!board1.canplay(1));
+        assert!(!board1.canplay(2));
+        assert!(!board1.canplay(3));
+
+        board1.play(0);
+
+        assert!(board1.canplay(1));
+        assert!(board1.canplay(2));
+        assert!(board1.canplay(3));
+
+        assert!(!board1.canplay(0));
+        assert!(!board1.canplay(4));
+
+        board1.play(2);
+
+        assert!(board1.canplay(1));
+        assert!(board1.canplay(2));
+        assert!(board1.canplay(3));
+        assert!(board1.canplay(4));
+
+        assert!(!board1.canplay(0));
+
+        let board2 = Board::load("11210141").unwrap();
+
+        assert!(board2.canplay(1));
+        assert!(board2.canplay(3));
+
+        assert!(!board2.canplay(0));
+        assert!(!board2.canplay(2));
+        assert!(!board2.canplay(4));
+    }
 
     /// Test taking the previous move.
     #[test]
-    fn canplay_takes_prev() {}
+    fn canplay_takes_prev() {
+        // normal cannot take
+        let board1 = Board::load("12101411").unwrap();
+        assert!(!board1.canplay(1));
+
+        // double cannot take
+        let board2 = Board::load("442343214122024").unwrap();
+        assert!(board2.canplay(2));
+        assert!(!board2.canplay(0));
+
+        // we can take
+        let board3 = Board::load("24232021122").unwrap();
+        assert!(board3.canplay(2));
+    }
 
     /// Test display of nonempty board.
     #[test]
