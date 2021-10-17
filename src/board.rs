@@ -1,5 +1,17 @@
 use crate::player::Players::{self, *};
-use std::{fmt, result::Result};
+use std::{fmt, result};
+
+#[derive(Debug, PartialEq)]
+pub enum Result {
+    /// Use this if player1 has won.
+    Player1,
+    /// Use this if player2 has won.
+    Player2,
+    /// Use this if it is a draw.
+    Draw,
+    /// Use this if the game is not over yet.
+    None,
+}
 
 #[derive(Debug)]
 pub struct Board {
@@ -28,7 +40,7 @@ pub struct Board {
     takestreak: u8,
 
     /// The number of moves that have been made.
-    movecount: u8,
+    movecount: u16,
 }
 
 impl Board {
@@ -49,7 +61,7 @@ impl Board {
     }
 
     /// Create a board with the specified configuration.
-    pub fn load(moves: &str) -> Result<Self, String> {
+    pub fn load(moves: &str) -> result::Result<Self, String> {
         let mut board = Self::new();
 
         if !moves.chars().all(|c| '0' <= c && c <= '4') {
@@ -70,7 +82,12 @@ impl Board {
             if board.canplay(c) {
                 board.play(c);
             } else {
-                return Err(format!("Move {} is invalid: ({}, {}).", index + 1, board.lastmove.1, c));
+                return Err(format!(
+                    "Move {} is invalid: ({}, {}).",
+                    index + 1,
+                    board.lastmove.1,
+                    c
+                ));
             }
         }
         return Ok(board);
@@ -138,13 +155,6 @@ impl Board {
         self.canplay_explicit(self.lastmove.1, cell)
     }
 
-    /// Update the state and mask variable according to the move.
-    fn update(&mut self, square: u8, cell: u8) {
-        let bit = 1 << square * 5 + cell;
-        self.state ^= bit;
-        self.mask |= bit;
-    }
-
     pub fn play_explicit(&mut self, square: u8, cell: u8) {
         debug_assert!(self.canplay_explicit(square, cell));
 
@@ -156,12 +166,19 @@ impl Board {
             self.takestreak = 0;
         }
 
+        // Update the state and mask variable according to the move.
+        let mut update = |square: u8, cell: u8| {
+            let bit = 1 << square * 5 + cell;
+            self.state ^= bit;
+            self.mask |= bit;
+        };
+
         // Update the state and mask of the cell.
-        self.update(square, cell);
+        update(square, cell);
 
         // Update the double cell if we are in one.
         if let Some((s, c)) = Board::double(square, cell) {
-            self.update(s, c);
+            update(s, c);
         }
 
         // Update the stones, player onturn, state, lastmove and movecount.
@@ -176,12 +193,63 @@ impl Board {
         self.play_explicit(self.lastmove.1, cell);
     }
 
-    // isfinalmove(move): the other player has no stones left after your turn
-    // (you lose) you fill a square (you win), the taken_streak is reached
-    // (draw), or the board is full (depends)
+    /// Check if the game is over.
+    /// This function assumes the game was not over before the lastmove.
+    pub fn isover(&self) -> Result {
+        // Convert the onturn player to a result player type.
+        let result = |player: Players| -> Result {
+            match player {
+                Player1 => Result::Player1,
+                Player2 => Result::Player2,
+            }
+        };
 
-    // nbmoves(): returns move_count
-    // hash(): small bit representation of the board
+        // No one can win within just 8 moves, at least 9 are needed.
+        if self.movecount <= 8 {
+            return Result::None;
+        }
+
+        // Check if the (previous) player has finished a square.
+        if (self.mask ^ (0b11111 << self.lastmove.0 * 5)) | self.state == 0 {
+            return result(self.onturn.other());
+        }
+
+        // Check if the board is full and if so who won.
+        if self.mask == 0b11111_11111_11111_11111_11111 {
+            let square_count_onturn = {
+                (0u8..5u8)
+                    .filter(|square| {
+                        // Count the number of cells in the square.
+                        (0u8..5u8)
+                            .filter(|cell| self.state & 1 << square * 5 + cell != 0)
+                            .count()
+                            > 2
+                    })
+                    .count()
+            };
+            match square_count_onturn {
+                c if c > 2 => return result(self.onturn),
+                _ => return result(self.onturn.other()),
+            }
+        }
+
+        // The streak of consecutively taking stones is reached.
+        if self.takestreak == 20 {
+            return Result::Draw;
+        }
+
+        // Check if the player onturn still has stones left.
+        if self.stones[self.onturn as usize] == 0 {
+            return result(self.onturn);
+        }
+
+        // The game is not over yet.
+        return Result::None;
+    }
+
+    pub fn movecount(&self) -> u16 {
+        self.movecount
+    }
 
     fn symbol(&self, square: u8, cell: u8) -> String {
         let index = square * 5 + cell;
@@ -262,7 +330,7 @@ mod tests {
         let board1 = Board::load("0123432100304022").unwrap();
 
         assert_eq!(board1.state, 0b00000_10100_00001_00101_11100);
-        assert_eq!(board1.mask,  0b01001_10111_11111_01101_11111);
+        assert_eq!(board1.mask, 0b01001_10111_11111_01101_11111);
         assert_eq!(board1.onturn, Player2);
         assert_eq!(board1.stones, [4, 5]);
         assert_eq!(board1.lastmove, (2, 2));
@@ -272,7 +340,7 @@ mod tests {
         let board2 = Board::load("01234321003040223").unwrap();
 
         assert_eq!(board2.state, 0b01001_00001_10110_01000_00011);
-        assert_eq!(board2.mask,  0b01001_10111_11111_01101_11111);
+        assert_eq!(board2.mask, 0b01001_10111_11111_01101_11111);
         assert_eq!(board2.onturn, Player1);
         assert_eq!(board2.stones, [5, 4]);
         assert_eq!(board2.lastmove, (2, 3));
@@ -288,7 +356,7 @@ mod tests {
         board.play_explicit(3, 4);
 
         assert_eq!(board.state, 0b00000_00000_00000_00000_00000);
-        assert_eq!(board.mask,  0b00000_10000_00000_00000_00000);
+        assert_eq!(board.mask, 0b00000_10000_00000_00000_00000);
         assert_eq!(board.onturn, Player2);
         assert_eq!(board.stones, [11, 12]);
         assert_eq!(board.lastmove, (3, 4));
@@ -298,7 +366,7 @@ mod tests {
         board.play(1);
 
         assert_eq!(board.state, 0b00000_10000_00000_00000_00000);
-        assert_eq!(board.mask,  0b00010_10000_00000_00000_00000);
+        assert_eq!(board.mask, 0b00010_10000_00000_00000_00000);
         assert_eq!(board.onturn, Player1);
         assert_eq!(board.stones, [11, 11]);
         assert_eq!(board.lastmove, (4, 1));
@@ -312,14 +380,14 @@ mod tests {
         board.play(0);
 
         assert_eq!(board.state, 0b00000_00001_00001_00001_10000);
-        assert_eq!(board.mask,  0b00000_00001_00001_00001_11111);
+        assert_eq!(board.mask, 0b00000_00001_00001_00001_11111);
         assert_eq!(board.stones, [9, 8]);
         assert_eq!(board.takestreak, 1);
 
         board.play(3);
 
         assert_eq!(board.state, 0b00000_00000_00000_00000_00111);
-        assert_eq!(board.mask,  0b00000_00001_00001_00001_11111);
+        assert_eq!(board.mask, 0b00000_00001_00001_00001_11111);
         assert_eq!(board.stones, [8, 9]);
         assert_eq!(board.takestreak, 2);
 
@@ -333,35 +401,35 @@ mod tests {
         let mut board1 = Board::new();
         board1.play_explicit(0, 4);
         assert_eq!(board1.state, 0b00000_00000_00000_00000_00000);
-        assert_eq!(board1.mask,  0b00000_00000_00001_00000_10000);
+        assert_eq!(board1.mask, 0b00000_00000_00001_00000_10000);
 
         let mut board2 = Board::new();
         board2.play_explicit(1, 3);
-        assert_eq!(board2.mask,  0b00000_00000_00010_01000_00000);
+        assert_eq!(board2.mask, 0b00000_00000_00010_01000_00000);
 
         let mut board3 = Board::new();
         board3.play_explicit(3, 1);
-        assert_eq!(board3.mask,  0b00000_00010_01000_00000_00000);
+        assert_eq!(board3.mask, 0b00000_00010_01000_00000_00000);
 
         let mut board4 = Board::new();
         board4.play_explicit(4, 0);
-        assert_eq!(board4.mask,  0b00001_00000_10000_00000_00000);
+        assert_eq!(board4.mask, 0b00001_00000_10000_00000_00000);
 
         let mut board5 = Board::new();
         board5.play_explicit(2, 0);
-        assert_eq!(board5.mask,  0b00000_00000_00001_00000_10000);
+        assert_eq!(board5.mask, 0b00000_00000_00001_00000_10000);
 
         let mut board6 = Board::new();
         board6.play_explicit(2, 1);
-        assert_eq!(board6.mask,  0b00000_00000_00010_01000_00000);
+        assert_eq!(board6.mask, 0b00000_00000_00010_01000_00000);
 
         let mut board7 = Board::new();
         board7.play_explicit(2, 3);
-        assert_eq!(board7.mask,  0b00000_00010_01000_00000_00000);
+        assert_eq!(board7.mask, 0b00000_00010_01000_00000_00000);
 
         let mut board8 = Board::new();
         board8.play_explicit(2, 4);
-        assert_eq!(board8.mask,  0b00001_00000_10000_00000_00000);
+        assert_eq!(board8.mask, 0b00001_00000_10000_00000_00000);
     }
 
     /// Test playing in an empty cell.
