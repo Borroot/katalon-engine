@@ -1,7 +1,7 @@
 use crate::player::Players::{self, *};
 use std::{fmt, result};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum Result {
     /// Use this if player1 has won.
     Player1,
@@ -44,6 +44,9 @@ pub struct Board {
 }
 
 impl Board {
+    /// The maximum number of takes that are allowed to be made in a row.
+    const TAKESTREAK_LIMIT: u8 = 20;
+
     /// Create a new empty board.
     pub fn new() -> Self {
         Self {
@@ -77,14 +80,14 @@ impl Board {
         let mut cs = moves.chars().map(|c: char| c as u8 - '0' as u8);
         board.play_explicit(cs.next().unwrap(), cs.next().unwrap());
 
-        for (index, c) in cs.enumerate() {
+        for c in cs {
             // TODO add isfinalmove check
             if board.canplay(c) {
                 board.play(c);
             } else {
                 return Err(format!(
                     "Move {} is invalid: ({}, {}).",
-                    index + 1,
+                    board.movecount() + 1,
                     board.lastmove.1,
                     c
                 ));
@@ -106,7 +109,7 @@ impl Board {
             (2, 3) => Some((3, 1)),
             (2, 4) => Some((4, 0)),
 
-            _ => None,
+            (_, _) => None,
         }
     }
 
@@ -137,12 +140,10 @@ impl Board {
         // If the cell is not equal to the lastmove, return true.
         // Also check the double cell connected to the lastmove.
         if self.lastmove.0 != square || self.lastmove.1 != cell {
-            if let Some(lastdouble) = Board::double(self.lastmove.0, self.lastmove.1) {
-                if lastdouble.0 != square || lastdouble.1 != cell {
-                    return true;
-                }
-            } else {
-                return true;
+            match Board::double(self.lastmove.0, self.lastmove.1) {
+                None => return true,
+                Some((s, c)) if s != square || c != cell => return true,
+                Some(_) => (), // double == lastmove
             }
         }
 
@@ -193,8 +194,7 @@ impl Board {
         self.play_explicit(self.lastmove.1, cell);
     }
 
-    /// Check if the game is over.
-    /// This function assumes the game was not over before the lastmove.
+    /// Check if the game is over, as a result of the lastmove!
     pub fn isover(&self) -> Result {
         // Convert the onturn player to a result player type.
         let result = |player: Players| -> Result {
@@ -217,10 +217,9 @@ impl Board {
         // Check if the board is full and if so who won.
         if self.mask == 0b11111_11111_11111_11111_11111 {
             let square_count_onturn = {
-                (0u8..5u8)
+                (0u8..5)
                     .filter(|square| {
-                        // Count the number of cells in the square.
-                        (0u8..5u8)
+                        (0u8..5)
                             .filter(|cell| self.state & 1 << square * 5 + cell != 0)
                             .count()
                             > 2
@@ -234,7 +233,7 @@ impl Board {
         }
 
         // The streak of consecutively taking stones is reached.
-        if self.takestreak == 20 {
+        if self.takestreak == Board::TAKESTREAK_LIMIT {
             return Result::Draw;
         }
 
@@ -243,28 +242,28 @@ impl Board {
             return result(self.onturn);
         }
 
-        // The game is not over yet.
-        return Result::None;
+        return Result::None; // The game is not over yet.
     }
 
     pub fn movecount(&self) -> u16 {
         self.movecount
     }
-
-    fn symbol(&self, square: u8, cell: u8) -> String {
-        let index = square * 5 + cell;
-        if self.mask & 1 << index == 0 {
-            ".".to_string()
-        } else if self.state & 1 << index == 0 {
-            self.onturn.other().to_string()
-        } else {
-            self.onturn.to_string()
-        }
-    }
 }
 
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Get the symbol corresponding to the given cell.
+        let symbol = |square: u8, cell: u8| -> String {
+            let index = square * 5 + cell;
+            if self.mask & 1 << index == 0 {
+                ".".to_string()
+            } else if self.state & 1 << index == 0 {
+                self.onturn.other().to_string()
+            } else {
+                self.onturn.to_string()
+            }
+        };
+
         write!(
             f,
             concat!(
@@ -284,27 +283,27 @@ impl fmt::Display for Board {
                 "| {}       {} |   | {}       {} |\n",
                 "+---------------------------+\n",
             ),
-            self.symbol(0, 0),
-            self.symbol(0, 1),
-            self.symbol(1, 0),
-            self.symbol(1, 1),
-            self.symbol(0, 2),
-            self.symbol(1, 2),
-            self.symbol(0, 3),
-            self.symbol(0, 4),
-            self.symbol(1, 3),
-            self.symbol(1, 4),
-            self.symbol(2, 2),
-            self.symbol(3, 0),
-            self.symbol(3, 1),
-            self.symbol(4, 0),
-            self.symbol(4, 1),
-            self.symbol(3, 2),
-            self.symbol(4, 2),
-            self.symbol(3, 3),
-            self.symbol(3, 4),
-            self.symbol(4, 3),
-            self.symbol(4, 4)
+            symbol(0, 0),
+            symbol(0, 1),
+            symbol(1, 0),
+            symbol(1, 1),
+            symbol(0, 2),
+            symbol(1, 2),
+            symbol(0, 3),
+            symbol(0, 4),
+            symbol(1, 3),
+            symbol(1, 4),
+            symbol(2, 2),
+            symbol(3, 0),
+            symbol(3, 1),
+            symbol(4, 0),
+            symbol(4, 1),
+            symbol(3, 2),
+            symbol(4, 2),
+            symbol(3, 3),
+            symbol(3, 4),
+            symbol(4, 3),
+            symbol(4, 4)
         )
     }
 }

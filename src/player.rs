@@ -1,7 +1,7 @@
 use std::fmt;
 use Players::*;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Players {
     Player1,
     Player2,
