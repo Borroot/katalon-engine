@@ -125,6 +125,7 @@ impl Board {
         debug_assert!(self.lastmove.1 == 0xFF || self.lastmove.1 == square);
         debug_assert!(self.stones[self.onturn as usize] > 0);
         debug_assert!(square < 5 && cell < 5);
+        debug_assert!(self.isover() == Result::None);
 
         let bit = 1 << square * 5 + cell;
 

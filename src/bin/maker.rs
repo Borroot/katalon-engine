@@ -1,10 +1,13 @@
 use katalon::board::*;
+use katalon::player::*;
 use regex::Regex;
+use std::fmt;
 use std::io::{self, Write};
 
 struct State {
     board: Board,
     notation: String,
+    finished: bool,
 }
 
 impl State {
@@ -12,6 +15,7 @@ impl State {
         return State {
             board: Board::new(),
             notation: String::new(),
+            finished: false,
         };
     }
 
@@ -34,6 +38,7 @@ impl State {
                 self.board = Board::new();
             },
             _ => {
+                self.finished = false;
                 self.notation.pop();
                 self.board = Board::load(&self.notation).unwrap();
             }
@@ -41,6 +46,7 @@ impl State {
     }
 
     fn reset(&mut self) {
+        self.finished = false;
         self.board = Board::new();
         self.notation.clear();
     }
@@ -49,6 +55,7 @@ impl State {
         let board = Board::load(moves);
         match board {
             Ok(board) => {
+                self.finished = self.board.isover() != Result::None;
                 self.board = board;
                 self.notation = String::from(moves);
                 return true;
@@ -61,7 +68,22 @@ impl State {
     }
 }
 
+impl fmt::Display for State {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.board.movecount() == 0 {
+            write!(f, "{}", self.board)
+        } else {
+            write!(f, "{}= {}\n", self.board, self.notation)
+        }
+    }
+}
+
 fn play(caps: regex::Captures<'_>, state: &mut State) {
+    if state.finished {
+        println!("Warn: the game already finished.");
+        return;
+    }
+
     let cell = caps.name("cell").unwrap().as_str().chars().next().unwrap();
     let cell = cell as u8 - '0' as u8;
 
@@ -91,17 +113,27 @@ fn play(caps: regex::Captures<'_>, state: &mut State) {
 
         state.play(cell);
     }
-    println!("{}= {}", state.board, state.notation);
+    print!("{}", state);
+
+    if state.board.isover() != Result::None {
+        state.finished = true;
+    }
+    match state.board.isover() {
+        Result::Player1 => println!("Player {} won!", Players::Player1),
+        Result::Player2 => println!("Player {} won!", Players::Player2),
+        Result::Draw => println!("It's a draw!"),
+        Result::None => (),
+    }
 }
 
 fn undo(state: &mut State) {
     state.undo();
-    show(state);
+    print!("{}", state);
 }
 
 fn reset(state: &mut State) {
     state.reset();
-    print!("{}", state.board);
+    print!("{}", state);
 }
 
 fn load(args: &Vec<&str>, state: &mut State) {
@@ -111,15 +143,7 @@ fn load(args: &Vec<&str>, state: &mut State) {
     }
 
     if state.load(args[1]) {
-        print!("{}", state.board);
-    }
-}
-
-fn show(state: &mut State) {
-    if state.board.movecount() == 0 {
-        print!("{}", state.board);
-    } else {
-        println!("{}= {}", state.board, state.notation);
+        print!("{}", state);
     }
 }
 
@@ -129,7 +153,7 @@ fn help() {
         "u undo: undo last move\n",
         "n new: new game\n",
         "l load: load game\n",
-        "s show: show board\n",
+        "p print: print board\n",
         "q quit: quit the maker\n",
         "h help: show this help",
     ));
@@ -145,7 +169,7 @@ fn parse(line: String, state: &mut State) -> bool {
             "u" | "undo" => undo(state),
             "n" | "new" => reset(state),
             "l" | "load" => load(&args, state),
-            "s" | "show" => show(state),
+            "p" | "print" => print!("{}", state),
             "q" | "quit" => return true,
             "h" | "help" => help(),
             _ => println!("Error: invalid command, see 'help'."),
