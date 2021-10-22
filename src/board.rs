@@ -80,10 +80,18 @@ impl Board {
         let mut cs = moves.chars().map(|c: char| c as u8 - '0' as u8);
         board.play_explicit(cs.next().unwrap(), cs.next().unwrap());
 
+        let mut gamefinished = false;
         for c in cs {
-            // TODO add isfinalmove check
-            if board.canplay(c) {
+            if gamefinished {
+                return Err(format!(
+                    "Move {} is invalid: ({}, {}), game finished.",
+                    board.movecount() + 1,
+                    board.lastmove.1,
+                    c
+                ));
+            } else if board.canplay(c) {
                 board.play(c);
+                gamefinished = board.isover() != Result::None;
             } else {
                 return Err(format!(
                     "Move {} is invalid: ({}, {}).",
@@ -209,9 +217,21 @@ impl Board {
             return Result::None;
         }
 
+        // Check if the given square is finished by the previous player.
+        let check_square = |square: u8| -> bool {
+            let mask_square = 0b11111 << square * 5;
+            return self.mask & mask_square & (self.state ^ mask_square) == mask_square;
+        };
+
         // Check if the (previous) player has finished a square.
-        if (self.mask ^ (0b11111 << self.lastmove.0 * 5)) | self.state == 0 {
+        // Also check the double square if applicable.
+        if check_square(self.lastmove.0) {
             return result(self.onturn.other());
+        }
+        if let Some((square, _)) = Board::double(self.lastmove.0, self.lastmove.1) {
+            if check_square(square) {
+                return result(self.onturn.other());
+            }
         }
 
         // Check if the board is full and if so who won.
@@ -267,7 +287,7 @@ impl fmt::Display for Board {
         write!(
             f,
             concat!(
-                "+---------------------------+\n",
+                "+-----------+---+-----------+\n",
                 "| {}       {} |   | {}       {} |\n",
                 "|           |   |           |\n",
                 "|     {}     |   |     {}     |\n",
@@ -281,7 +301,7 @@ impl fmt::Display for Board {
                 "|     {}     |   |     {}     |\n",
                 "|           |   |           |\n",
                 "| {}       {} |   | {}       {} |\n",
-                "+---------------------------+\n",
+                "+-----------+---+-----------+\n",
             ),
             symbol(0, 0),
             symbol(0, 1),
@@ -312,18 +332,21 @@ impl fmt::Display for Board {
 mod tests {
     use super::*;
 
+    /// Test some basic error handling for the load function.
     #[test]
     fn load_basic() {
         assert!(Board::load("jfkd").is_err());
         assert!(Board::load("3").is_err());
         assert!(Board::load("35").is_err());
         assert!(Board::load("012345").is_err());
+        assert!(Board::load("23202124220").is_err());
 
         assert!(Board::load("").is_ok());
         assert!(Board::load("02").is_ok());
         assert!(Board::load("01234").is_ok());
     }
 
+    /// Test the board is correct when loaded from a string.
     #[test]
     fn load_more() {
         let board1 = Board::load("0123432100304022").unwrap();
@@ -345,10 +368,9 @@ mod tests {
         assert_eq!(board2.lastmove, (2, 3));
         assert_eq!(board2.takestreak, 1);
         assert_eq!(board2.movecount, 16);
-
-        // TODO add test case which errors because game ended
     }
 
+    /// Test state update correctness after occupying an empty cell.
     #[test]
     fn play_empty() {
         let mut board = Board::new();
@@ -373,6 +395,7 @@ mod tests {
         assert_eq!(board.movecount, 2);
     }
 
+    /// Test state update correctness after taking a stone.
     #[test]
     fn play_takes() {
         let mut board = Board::load("00203010").unwrap();
@@ -395,6 +418,7 @@ mod tests {
         assert_eq!(board.takestreak, 0);
     }
 
+    /// Test state update correctness when playing on a double cell.
     #[test]
     fn play_double() {
         let mut board1 = Board::new();
@@ -521,6 +545,50 @@ mod tests {
         assert!(board3.canplay(2));
     }
 
+    /// Test winning by completing a square.
+    #[test]
+    fn isover_square() {
+        let board1 = Board::load("2320212422").unwrap();
+        assert_eq!(board1.isover(), Result::Player1);
+
+        let board2 = Board::load("22021232422").unwrap();
+        assert_eq!(board2.isover(), Result::Player2);
+    }
+
+    /// Test winning on a full board.
+    #[test]
+    fn isover_full() {
+        let board1 = Board::load("200301314022334323344241120010").unwrap();
+        assert_eq!(board1.isover(), Result::Player2);
+
+        let board2 = Board::load("2003310221243201141030223420121103211031").unwrap();
+        assert_eq!(board2.isover(), Result::Player1);
+    }
+
+    /// Test drawing because the takestreak is reached.
+    #[test]
+    fn isover_takestreak() {
+        if Board::TAKESTREAK_LIMIT < 5 || Board::TAKESTREAK_LIMIT > 30 {
+            panic!("Please keep the TAKESTREAK_LIMIT between 5 and 30.");
+        }
+
+        // Setup the start of the game, after this we can cycle with 21103.
+        // The takestreak is already 2 here.
+        let start = String::from("20033102212432011410302234201");
+        let cycle = "21103".repeat(6);
+        let cycle = cycle.get(..Board::TAKESTREAK_LIMIT as usize - 2).unwrap();
+
+        let board = Board::load(&(start + cycle)).unwrap();
+        assert_eq!(board.isover(), Result::Draw);
+    }
+
+    /// Test winning because the player onturn has no stones left.
+    #[test]
+    fn isover_stones() {
+        let board = Board::load("0020301101440313322423412").unwrap();
+        assert_eq!(board.isover(), Result::Player1);
+    }
+
     /// Test display of nonempty board.
     #[test]
     fn display_nonempty() {
@@ -532,7 +600,7 @@ mod tests {
         assert_eq!(
             format!("{}", board),
             concat!(
-                "+---------------------------+\n",
+                "+-----------+---+-----------+\n",
                 "| X       O |   | X       O |\n",
                 "|           |   |           |\n",
                 "|     X     |   |     X     |\n",
@@ -546,7 +614,7 @@ mod tests {
                 "|     X     |   |     X     |\n",
                 "|           |   |           |\n",
                 "| O       X |   | O       X |\n",
-                "+---------------------------+\n",
+                "+-----------+---+-----------+\n",
             )
         );
     }
@@ -557,7 +625,7 @@ mod tests {
         assert_eq!(
             format!("{}", Board::new()),
             concat!(
-                "+---------------------------+\n",
+                "+-----------+---+-----------+\n",
                 "| .       . |   | .       . |\n",
                 "|           |   |           |\n",
                 "|     .     |   |     .     |\n",
@@ -571,7 +639,7 @@ mod tests {
                 "|     .     |   |     .     |\n",
                 "|           |   |           |\n",
                 "| .       . |   | .       . |\n",
-                "+---------------------------+\n",
+                "+-----------+---+-----------+\n",
             )
         );
     }
