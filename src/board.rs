@@ -9,8 +9,6 @@ pub enum Result {
     Player2,
     /// Use this if it is a draw.
     Draw,
-    /// Use this if the game is not over yet.
-    None,
 }
 
 #[derive(Debug)]
@@ -78,7 +76,7 @@ impl Board {
         }
 
         let mut cs = moves.chars().map(|c: char| c as u8 - '0' as u8);
-        board.play_explicit(cs.next().unwrap(), cs.next().unwrap());
+        board.play(cs.next().unwrap(), cs.next().unwrap());
 
         let mut gamefinished = false;
         for c in cs {
@@ -89,9 +87,9 @@ impl Board {
                     board.lastmove.1,
                     c
                 ));
-            } else if board.canplay(c) {
-                board.play(c);
-                gamefinished = board.isover() != Result::None;
+            } else if board.canplay(board.square().unwrap(), c) {
+                board.play(board.square().unwrap(), c);
+                gamefinished = board.isover() != None;
             } else {
                 return Err(format!(
                     "Move {} is invalid: ({}, {}).",
@@ -121,11 +119,12 @@ impl Board {
         }
     }
 
-    pub fn canplay_explicit(&self, square: u8, cell: u8) -> bool {
+    /// Check if the onturn player can play on (square, cell).
+    pub fn canplay(&self, square: u8, cell: u8) -> bool {
         debug_assert!(self.lastmove.1 == 0xFF || self.lastmove.1 == square);
         debug_assert!(self.stones[self.onturn as usize] > 0);
         debug_assert!(square < 5 && cell < 5);
-        debug_assert!(self.isover() == Result::None);
+        debug_assert!(self.isover() == None);
 
         let bit = 1 << square * 5 + cell;
 
@@ -160,13 +159,9 @@ impl Board {
         return (self.state ^ bit) & mask_square == mask_square;
     }
 
-    pub fn canplay(&self, cell: u8) -> bool {
-        debug_assert!(self.lastmove.0 < 5 && self.lastmove.1 < 5);
-        self.canplay_explicit(self.lastmove.1, cell)
-    }
-
-    pub fn play_explicit(&mut self, square: u8, cell: u8) {
-        debug_assert!(self.canplay_explicit(square, cell));
+    /// Make the play at the given (square, cell).
+    pub fn play(&mut self, square: u8, cell: u8) {
+        debug_assert!(self.canplay(square, cell));
 
         // Check if we take a stone from the opponent.
         if self.mask & 1 << square * 5 + cell != 0 {
@@ -199,23 +194,19 @@ impl Board {
         self.movecount += 1;
     }
 
-    pub fn play(&mut self, cell: u8) {
-        self.play_explicit(self.lastmove.1, cell);
-    }
-
     /// Check if the game is over, as a result of the lastmove!
-    pub fn isover(&self) -> Result {
+    pub fn isover(&self) -> Option<Result> {
         // Convert the onturn player to a result player type.
-        let result = |player: Players| -> Result {
+        let result = |player: Players| -> Option<Result> {
             match player {
-                Player1 => Result::Player1,
-                Player2 => Result::Player2,
+                Player1 => Some(Result::Player1),
+                Player2 => Some(Result::Player2),
             }
         };
 
         // No one can win within just 8 moves, at least 9 are needed.
         if self.movecount <= 8 {
-            return Result::None;
+            return None;
         }
 
         // Check if the given square is finished by the previous player.
@@ -255,7 +246,7 @@ impl Board {
 
         // The streak of consecutively taking stones is reached.
         if self.takestreak == Board::TAKESTREAK_LIMIT {
-            return Result::Draw;
+            return Some(Result::Draw);
         }
 
         // Check if the player onturn still has stones left.
@@ -263,11 +254,30 @@ impl Board {
             return result(self.onturn);
         }
 
-        return Result::None; // The game is not over yet.
+        return None; // The game is not over yet.
     }
 
+    /// Return how many moves have been made this game.
     pub fn movecount(&self) -> u16 {
         self.movecount
+    }
+
+    /// Return the player onturn.
+    pub fn onturn(&self) -> Players {
+        self.onturn
+    }
+
+    /// Return if this will be the first move.
+    pub fn isfirst(&self) -> bool {
+        self.movecount == 0
+    }
+
+    /// Return the square constraint.
+    pub fn square(&self) -> Option<u8> {
+        match self.lastmove.1 {
+            0xFF => None,
+            square => Some(square),
+        }
     }
 }
 
@@ -375,7 +385,7 @@ mod tests {
     #[test]
     fn play_empty() {
         let mut board = Board::new();
-        board.play_explicit(3, 4);
+        board.play(3, 4);
 
         assert_eq!(board.state, 0b00000_00000_00000_00000_00000);
         assert_eq!(board.mask, 0b00000_10000_00000_00000_00000);
@@ -385,7 +395,7 @@ mod tests {
         assert_eq!(board.takestreak, 0);
         assert_eq!(board.movecount, 1);
 
-        board.play(1);
+        board.play(board.square().unwrap(), 1);
 
         assert_eq!(board.state, 0b00000_10000_00000_00000_00000);
         assert_eq!(board.mask, 0b00010_10000_00000_00000_00000);
@@ -400,21 +410,21 @@ mod tests {
     #[test]
     fn play_takes() {
         let mut board = Board::load("00203010").unwrap();
-        board.play(0);
+        board.play(board.square().unwrap(), 0);
 
         assert_eq!(board.state, 0b00000_00001_00001_00001_10000);
         assert_eq!(board.mask, 0b00000_00001_00001_00001_11111);
         assert_eq!(board.stones, [9, 8]);
         assert_eq!(board.takestreak, 1);
 
-        board.play(3);
+        board.play(board.square().unwrap(), 3);
 
         assert_eq!(board.state, 0b00000_00000_00000_00000_00111);
         assert_eq!(board.mask, 0b00000_00001_00001_00001_11111);
         assert_eq!(board.stones, [8, 9]);
         assert_eq!(board.takestreak, 2);
 
-        board.play(4);
+        board.play(board.square().unwrap(), 4);
 
         assert_eq!(board.takestreak, 0);
     }
@@ -423,36 +433,36 @@ mod tests {
     #[test]
     fn play_double() {
         let mut board1 = Board::new();
-        board1.play_explicit(0, 4);
+        board1.play(0, 4);
         assert_eq!(board1.state, 0b00000_00000_00000_00000_00000);
         assert_eq!(board1.mask, 0b00000_00000_00001_00000_10000);
 
         let mut board2 = Board::new();
-        board2.play_explicit(1, 3);
+        board2.play(1, 3);
         assert_eq!(board2.mask, 0b00000_00000_00010_01000_00000);
 
         let mut board3 = Board::new();
-        board3.play_explicit(3, 1);
+        board3.play(3, 1);
         assert_eq!(board3.mask, 0b00000_00010_01000_00000_00000);
 
         let mut board4 = Board::new();
-        board4.play_explicit(4, 0);
+        board4.play(4, 0);
         assert_eq!(board4.mask, 0b00001_00000_10000_00000_00000);
 
         let mut board5 = Board::new();
-        board5.play_explicit(2, 0);
+        board5.play(2, 0);
         assert_eq!(board5.mask, 0b00000_00000_00001_00000_10000);
 
         let mut board6 = Board::new();
-        board6.play_explicit(2, 1);
+        board6.play(2, 1);
         assert_eq!(board6.mask, 0b00000_00000_00010_01000_00000);
 
         let mut board7 = Board::new();
-        board7.play_explicit(2, 3);
+        board7.play(2, 3);
         assert_eq!(board7.mask, 0b00000_00010_01000_00000_00000);
 
         let mut board8 = Board::new();
-        board8.play_explicit(2, 4);
+        board8.play(2, 4);
         assert_eq!(board8.mask, 0b00001_00000_10000_00000_00000);
     }
 
@@ -461,32 +471,32 @@ mod tests {
     fn canplay_empty() {
         let mut board = Board::load("00").unwrap();
 
-        assert!(!board.canplay(0));
+        assert!(!board.canplay(board.square().unwrap(), 0));
 
-        assert!(board.canplay(1));
-        assert!(board.canplay(2));
-        assert!(board.canplay(3));
-        assert!(board.canplay(4));
+        assert!(board.canplay(board.square().unwrap(), 1));
+        assert!(board.canplay(board.square().unwrap(), 2));
+        assert!(board.canplay(board.square().unwrap(), 3));
+        assert!(board.canplay(board.square().unwrap(), 4));
 
-        board.play(4);
-        board.play(0);
-        board.play(2);
+        board.play(board.square().unwrap(), 4);
+        board.play(board.square().unwrap(), 0);
+        board.play(board.square().unwrap(), 2);
 
-        assert!(!board.canplay(0));
-        assert!(!board.canplay(4));
+        assert!(!board.canplay(board.square().unwrap(), 0));
+        assert!(!board.canplay(board.square().unwrap(), 4));
 
-        assert!(board.canplay(1));
-        assert!(board.canplay(2));
-        assert!(board.canplay(3));
+        assert!(board.canplay(board.square().unwrap(), 1));
+        assert!(board.canplay(board.square().unwrap(), 2));
+        assert!(board.canplay(board.square().unwrap(), 3));
 
-        board.play(2);
+        board.play(board.square().unwrap(), 2);
 
-        assert!(!board.canplay(0));
-        assert!(!board.canplay(2));
-        assert!(!board.canplay(4));
+        assert!(!board.canplay(board.square().unwrap(), 0));
+        assert!(!board.canplay(board.square().unwrap(), 2));
+        assert!(!board.canplay(board.square().unwrap(), 4));
 
-        assert!(board.canplay(1));
-        assert!(board.canplay(3));
+        assert!(board.canplay(board.square().unwrap(), 1));
+        assert!(board.canplay(board.square().unwrap(), 3));
     }
 
     /// Test taking a stone.
@@ -494,39 +504,39 @@ mod tests {
     fn canplay_takes_normal() {
         let mut board1 = Board::load("00203010").unwrap();
 
-        assert!(board1.canplay(0));
-        assert!(board1.canplay(4));
+        assert!(board1.canplay(board1.square().unwrap(), 0));
+        assert!(board1.canplay(board1.square().unwrap(), 4));
 
-        assert!(!board1.canplay(1));
-        assert!(!board1.canplay(2));
-        assert!(!board1.canplay(3));
+        assert!(!board1.canplay(board1.square().unwrap(), 1));
+        assert!(!board1.canplay(board1.square().unwrap(), 2));
+        assert!(!board1.canplay(board1.square().unwrap(), 3));
 
-        board1.play(0);
+        board1.play(board1.square().unwrap(), 0);
 
-        assert!(board1.canplay(1));
-        assert!(board1.canplay(2));
-        assert!(board1.canplay(3));
+        assert!(board1.canplay(board1.square().unwrap(), 1));
+        assert!(board1.canplay(board1.square().unwrap(), 2));
+        assert!(board1.canplay(board1.square().unwrap(), 3));
 
-        assert!(!board1.canplay(0));
-        assert!(!board1.canplay(4));
+        assert!(!board1.canplay(board1.square().unwrap(), 0));
+        assert!(!board1.canplay(board1.square().unwrap(), 4));
 
-        board1.play(2);
+        board1.play(board1.square().unwrap(), 2);
 
-        assert!(board1.canplay(1));
-        assert!(board1.canplay(2));
-        assert!(board1.canplay(3));
-        assert!(board1.canplay(4));
+        assert!(board1.canplay(board1.square().unwrap(), 1));
+        assert!(board1.canplay(board1.square().unwrap(), 2));
+        assert!(board1.canplay(board1.square().unwrap(), 3));
+        assert!(board1.canplay(board1.square().unwrap(), 4));
 
-        assert!(!board1.canplay(0));
+        assert!(!board1.canplay(board1.square().unwrap(), 0));
 
         let board2 = Board::load("11210141").unwrap();
 
-        assert!(board2.canplay(1));
-        assert!(board2.canplay(3));
+        assert!(board2.canplay(board2.square().unwrap(), 1));
+        assert!(board2.canplay(board2.square().unwrap(), 3));
 
-        assert!(!board2.canplay(0));
-        assert!(!board2.canplay(2));
-        assert!(!board2.canplay(4));
+        assert!(!board2.canplay(board2.square().unwrap(), 0));
+        assert!(!board2.canplay(board2.square().unwrap(), 2));
+        assert!(!board2.canplay(board2.square().unwrap(), 4));
     }
 
     /// Test taking the previous move.
@@ -534,36 +544,36 @@ mod tests {
     fn canplay_takes_prev() {
         // normal cannot take
         let board1 = Board::load("12101411").unwrap();
-        assert!(!board1.canplay(1));
+        assert!(!board1.canplay(board1.square().unwrap(), 1));
 
         // double cannot take
         let board2 = Board::load("442343214122024").unwrap();
-        assert!(board2.canplay(2));
-        assert!(!board2.canplay(0));
+        assert!(board2.canplay(board2.square().unwrap(), 2));
+        assert!(!board2.canplay(board2.square().unwrap(), 0));
 
         // we can take
         let board3 = Board::load("24232021122").unwrap();
-        assert!(board3.canplay(2));
+        assert!(board3.canplay(board3.square().unwrap(), 2));
     }
 
     /// Test winning by completing a square.
     #[test]
     fn isover_square() {
         let board1 = Board::load("2320212422").unwrap();
-        assert_eq!(board1.isover(), Result::Player1);
+        assert_eq!(board1.isover(), Some(Result::Player1));
 
         let board2 = Board::load("22021232422").unwrap();
-        assert_eq!(board2.isover(), Result::Player2);
+        assert_eq!(board2.isover(), Some(Result::Player2));
     }
 
     /// Test winning on a full board.
     #[test]
     fn isover_full() {
         let board1 = Board::load("200301314022334323344241120010").unwrap();
-        assert_eq!(board1.isover(), Result::Player2);
+        assert_eq!(board1.isover(), Some(Result::Player2));
 
         let board2 = Board::load("2003310221243201141030223420121103211031").unwrap();
-        assert_eq!(board2.isover(), Result::Player1);
+        assert_eq!(board2.isover(), Some(Result::Player1));
     }
 
     /// Test drawing because the takestreak is reached.
@@ -580,14 +590,14 @@ mod tests {
         let cycle = cycle.get(..Board::TAKESTREAK_LIMIT as usize - 2).unwrap();
 
         let board = Board::load(&(start + cycle)).unwrap();
-        assert_eq!(board.isover(), Result::Draw);
+        assert_eq!(board.isover(), Some(Result::Draw));
     }
 
     /// Test winning because the player onturn has no stones left.
     #[test]
     fn isover_stones() {
         let board = Board::load("0020301101440313322423412").unwrap();
-        assert_eq!(board.isover(), Result::Player1);
+        assert_eq!(board.isover(), Some(Result::Player1));
     }
 
     /// Test display of nonempty board.

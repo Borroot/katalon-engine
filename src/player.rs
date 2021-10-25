@@ -3,7 +3,7 @@ use std::fmt;
 use Players::*;
 
 pub trait Player {
-    fn play(board: board::Board) -> (u8, u8);
+    fn play(&self, board: &board::Board) -> (u8, u8);
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]

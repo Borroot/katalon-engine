@@ -1,11 +1,10 @@
-use katalon::board::*;
-use katalon::player::*;
-use regex::Regex;
+use katalon::{board, player};
+use regex;
 use std::fmt;
 use std::io::{self, Write};
 
 struct State {
-    board: Board,
+    board: board::Board,
     notation: String,
     finished: bool,
 }
@@ -13,21 +12,18 @@ struct State {
 impl State {
     fn new() -> Self {
         return State {
-            board: Board::new(),
+            board: board::Board::new(),
             notation: String::new(),
             finished: false,
         };
     }
 
-    fn play_explicit(&mut self, square: u8, cell: u8) {
-        self.board.play_explicit(square, cell);
-        self.notation.push_str(&square.to_string());
+    fn play(&mut self, square: u8, cell: u8) {
+        if self.board.isfirst() {
+            self.notation.push_str(&square.to_string());
+        }
         self.notation.push_str(&cell.to_string());
-    }
-
-    fn play(&mut self, cell: u8) {
-        self.board.play(cell);
-        self.notation.push_str(&cell.to_string());
+        self.board.play(square, cell);
     }
 
     fn undo(&mut self) {
@@ -35,27 +31,27 @@ impl State {
             0 => return,
             1 => {
                 self.notation.clear();
-                self.board = Board::new();
+                self.board = board::Board::new();
             }
             _ => {
                 self.finished = false;
                 self.notation.pop();
-                self.board = Board::load(&self.notation).unwrap();
+                self.board = board::Board::load(&self.notation).unwrap();
             }
         }
     }
 
     fn reset(&mut self) {
         self.finished = false;
-        self.board = Board::new();
+        self.board = board::Board::new();
         self.notation.clear();
     }
 
     fn load(&mut self, moves: &str) -> bool {
-        let board = Board::load(moves);
+        let board = board::Board::load(moves);
         match board {
             Ok(board) => {
-                self.finished = self.board.isover() != Result::None;
+                self.finished = self.board.isover() != None;
                 self.board = board;
                 self.notation = String::from(moves);
                 return true;
@@ -70,7 +66,7 @@ impl State {
 
 impl fmt::Display for State {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.board.movecount() == 0 {
+        if self.board.isfirst() {
             write!(f, "{}", self.board)
         } else {
             write!(f, "{}= {}\n", self.board, self.notation)
@@ -88,41 +84,41 @@ fn play(caps: regex::Captures<'_>, state: &mut State) {
     let cell = cell as u8 - '0' as u8;
 
     if let Some(square) = caps.name("square").unwrap().as_str().chars().next() {
-        if state.board.movecount() != 0 {
+        if !state.board.isfirst() {
             println!("Error: please only provide the cell.");
             return;
         }
 
         let square = square as u8 - '0' as u8;
-        if !state.board.canplay_explicit(square, cell) {
+        if !state.board.canplay(square, cell) {
             println!("Error: illegal move.");
             return;
         }
 
-        state.play_explicit(square, cell);
+        state.play(square, cell);
     } else {
-        if state.board.movecount() == 0 {
+        if state.board.isfirst() {
             println!("Error: please also provide the square.");
             return;
         }
 
-        if !state.board.canplay(cell) {
+        if !state.board.canplay(state.board.square().unwrap(), cell) {
             println!("Error: illegal move.");
             return;
         }
 
-        state.play(cell);
+        state.play(state.board.square().unwrap(), cell);
     }
     print!("{}", state);
 
-    if state.board.isover() != Result::None {
+    if state.board.isover() != None {
         state.finished = true;
     }
     match state.board.isover() {
-        Result::Player1 => println!("Player {} won!", Players::Player1),
-        Result::Player2 => println!("Player {} won!", Players::Player2),
-        Result::Draw => println!("It's a draw!"),
-        Result::None => (),
+        Some(board::Result::Player1) => println!("Player {} won!", player::Players::Player1),
+        Some(board::Result::Player2) => println!("Player {} won!", player::Players::Player2),
+        Some(board::Result::Draw) => println!("It's a draw!"),
+        None => (),
     }
 }
 
@@ -161,7 +157,7 @@ fn help() {
 
 fn parse(line: String, state: &mut State) -> bool {
     let args: Vec<&str> = line.split_whitespace().collect();
-    let re = Regex::new(r"^(?P<square>[0-4]?)(?P<cell>[0-4])$").unwrap();
+    let re = regex::Regex::new(r"^(?P<square>[0-4]?)(?P<cell>[0-4])$").unwrap();
 
     if args.len() > 0 {
         match args[0] {
@@ -179,12 +175,12 @@ fn parse(line: String, state: &mut State) -> bool {
 }
 
 fn input() -> String {
-    let mut line = String::new();
-
     print!("> ");
     io::stdout().flush().unwrap();
 
+    let mut line = String::new();
     io::stdin().read_line(&mut line).unwrap();
+
     return line;
 }
 
