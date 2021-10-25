@@ -14,12 +14,11 @@ impl player::Player for Random {
             return (square, cell);
         } else {
             let square = board.square().unwrap();
-            let cell = vec![0, 1, 2, 3, 4];
-            let options: Vec<_> = cell
-                .iter()
-                .filter(|&&cell| board.canplay(square, cell))
+            let options: Vec<_> = vec![0, 1, 2, 3, 4]
+                .into_iter()
+                .filter(|&cell| board.canplay(square, cell))
                 .collect();
-            let cell = *options[rng.gen_range(0..options.len()) as usize];
+            let cell = options[rng.gen_range(0..options.len()) as usize];
             return (square, cell);
         }
     }

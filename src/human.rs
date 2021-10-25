@@ -34,6 +34,7 @@ impl player::Player for Human {
             if let Some(s) = caps.name("square").unwrap().as_str().chars().next() {
                 square = s as u8 - '0' as u8;
 
+                // Make sure the correct square is provided.
                 if !board.isfirst() && square != board.square().unwrap() {
                     println!(
                         "{}",
