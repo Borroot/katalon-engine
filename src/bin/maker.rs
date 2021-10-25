@@ -36,7 +36,7 @@ impl State {
             1 => {
                 self.notation.clear();
                 self.board = Board::new();
-            },
+            }
             _ => {
                 self.finished = false;
                 self.notation.pop();
