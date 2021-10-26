@@ -1,4 +1,4 @@
-use katalon::{board, player};
+use katalon::{board, minmax, player};
 use regex;
 use std::fmt;
 use std::io::{self, Write};
@@ -83,6 +83,9 @@ fn play(caps: regex::Captures<'_>, state: &mut State) {
     let cell = caps.name("cell").unwrap().as_str().chars().next().unwrap();
     let cell = cell as u8 - '0' as u8;
 
+    // TODO make that you can also specify the square when not necessary
+    // copy from human player
+
     if let Some(square) = caps.name("square").unwrap().as_str().chars().next() {
         if !state.board.isfirst() {
             println!("Error: please only provide the cell.");
@@ -127,6 +130,14 @@ fn undo(state: &mut State) {
     print!("{}", state);
 }
 
+fn evaluate(board: &board::Board) {
+    // TODO add a timeout parameter
+    // TODO print time it takes
+    let (mut value, bestmoves) = minmax::Minmax::bestmoves(board);
+    value = minmax::Minmax::humanize_relative(board.movecount() as isize, value);
+    println!("eval: {}, moves: {:?}", value, bestmoves);
+}
+
 fn reset(state: &mut State) {
     state.reset();
     print!("{}", state);
@@ -147,6 +158,7 @@ fn help() {
     println!(concat!(
         "[0-4]<0-4>: make move\n",
         "u undo: undo last move\n",
+        "e eval: evaluate state\n",
         "n new: new game\n",
         "l load: load game\n",
         "c count: print movecount\n",
@@ -161,10 +173,14 @@ fn parse(line: String, state: &mut State) -> bool {
     let args: Vec<&str> = line.split_whitespace().collect();
     let re = regex::Regex::new(r"^(?P<square>[0-4]?)(?P<cell>[0-4])$").unwrap();
 
+    // TODO add history, repeat undo with enter
+    // TODO undo [num] add optional number of undo's
+    // TODO add 'best AI move'
     if args.len() > 0 {
         match args[0] {
             nums if re.is_match(nums) => play(re.captures(nums).unwrap(), state),
             "u" | "undo" => undo(state),
+            "e" | "eval" => evaluate(&state.board),
             "n" | "new" => reset(state),
             "l" | "load" => load(&args, state),
             "c" | "count" => println!("movecount: {}", state.board.movecount()),

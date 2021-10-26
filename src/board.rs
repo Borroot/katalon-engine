@@ -60,7 +60,7 @@ pub struct Board {
 
 impl Board {
     /// The maximum number of takes that are allowed to be made in a row.
-    pub const TAKESTREAK_LIMIT: u8 = 20;
+    pub const TAKESTREAK_LIMIT: u8 = 10;
 
     /// Create a new empty board.
     pub fn new() -> Self {
@@ -586,7 +586,7 @@ mod tests {
         let board1 = Board::load("200301314022334323344241120010").unwrap();
         assert_eq!(board1.isover(), Some(Result::Player2));
 
-        let board2 = Board::load("2003310221243201141030223420121103211031").unwrap();
+        let board2 = Board::load("2003310221243201141030223442").unwrap();
         assert_eq!(board2.isover(), Some(Result::Player1));
     }
 

@@ -5,36 +5,12 @@ use std::cmp;
 /// A player directed by the minmax algorithm.
 pub struct Minmax;
 
+// TODO cleanup
 impl Minmax {
-    /// Return the humanized evaluation of the given board.
-    pub fn evaluate(board: &board::Board) -> isize {
-        Minmax::humanize_relative(
-            board.movecount() as isize,
-            negamax(board, -isize::MAX, isize::MAX, 1, &board.onturn()),
-        )
-    }
+    // TODO return the evaluation of all the moves
 
-    /// E.g. -25 if loss on the 25th move and 10 if win on the 10th move.
-    fn humanize_absolute(value: isize) -> isize {
-        match value {
-            v if v < 0 => -(value + isize::MAX),
-            v if v > 0 => -(value - isize::MAX),
-            _ => 0,
-        }
-    }
-
-    /// E.g. -8 if loss in 8 moves and 10 if win in 10 moves.
-    fn humanize_relative(movecount: isize, value: isize) -> isize {
-        match value {
-            v if v < 0 => Minmax::humanize_absolute(value) + movecount,
-            v if v > 0 => Minmax::humanize_absolute(value) - movecount,
-            _ => 0,
-        }
-    }
-}
-
-impl player::Player for Minmax {
-    fn play(&self, node: &board::Board) -> (u8, u8) {
+    /// Return all of the best moves and the pure evaluation.
+    pub fn bestmoves(node: &board::Board) -> (isize, Vec<(u8, u8)>) {
         let mut bestmoves: Vec<(u8, u8)> = Vec::new();
         let mut max = isize::MIN;
 
@@ -44,6 +20,7 @@ impl player::Player for Minmax {
         let moves = moves(&node);
         // TODO sort
 
+        // TODO also use alpha and beta here
         for (square, cell) in moves {
             let mut child = node.clone();
             child.play(square, cell);
@@ -58,7 +35,36 @@ impl player::Player for Minmax {
                 bestmoves.push((square, cell));
             }
         }
+        (max, bestmoves)
+    }
 
+    /// Return the humanized evaluation of the given board.
+    fn evaluate(board: &board::Board) -> isize {
+        Minmax::humanize_relative(board.movecount() as isize, Minmax::bestmoves(board).0)
+    }
+
+    /// E.g. -25 if loss on the 25th move and 10 if win on the 10th move.
+    pub fn humanize_absolute(value: isize) -> isize {
+        match value {
+            v if v < 0 => -(value + isize::MAX),
+            v if v > 0 => -(value - isize::MAX),
+            _ => 0,
+        }
+    }
+
+    /// E.g. -8 if loss in 8 moves and 10 if win in 10 moves.
+    pub fn humanize_relative(movecount: isize, value: isize) -> isize {
+        match value {
+            v if v < 0 => Minmax::humanize_absolute(value) + movecount,
+            v if v > 0 => Minmax::humanize_absolute(value) - movecount,
+            _ => 0,
+        }
+    }
+}
+
+impl player::Player for Minmax {
+    fn play(&self, node: &board::Board) -> (u8, u8) {
+        let (_, bestmoves) = Minmax::bestmoves(node);
         let mut rng = rand::thread_rng();
         bestmoves[rng.gen_range(0..bestmoves.len()) as usize]
     }
