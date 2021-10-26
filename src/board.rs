@@ -1,4 +1,4 @@
-use crate::player::Players::{self, *};
+use crate::player;
 use std::{fmt, result};
 
 #[derive(Debug, Eq, PartialEq)]
@@ -11,7 +11,24 @@ pub enum Result {
     Draw,
 }
 
-#[derive(Debug)]
+impl Result {
+    pub fn from_player(player: &player::Players) -> Self {
+        match player {
+            player::Players::Player1 => Result::Player1,
+            player::Players::Player2 => Result::Player2,
+        }
+    }
+
+    pub fn player(&self) -> Option<player::Players> {
+        match self {
+            Result::Player1 => Some(player::Players::Player1),
+            Result::Player2 => Some(player::Players::Player2),
+            Result::Draw => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Board {
     /// The places at which the player onturn has a stone.
     /// 0b00000_00000_00000_00000_00000
@@ -24,7 +41,7 @@ pub struct Board {
     mask: u32,
 
     /// The player which is currently on turn.
-    onturn: Players,
+    onturn: player::Players,
 
     /// The number of stones left for the players (player1, player2).
     /// Both players start with 12 stones.
@@ -43,7 +60,7 @@ pub struct Board {
 
 impl Board {
     /// The maximum number of takes that are allowed to be made in a row.
-    const TAKESTREAK_LIMIT: u8 = 20;
+    pub const TAKESTREAK_LIMIT: u8 = 20;
 
     /// Create a new empty board.
     pub fn new() -> Self {
@@ -51,7 +68,7 @@ impl Board {
             state: 0,
             mask: 0,
 
-            onturn: Player1,
+            onturn: player::Players::Player1,
             stones: [12, 12],
 
             lastmove: (0xFF, 0xFF),
@@ -196,14 +213,6 @@ impl Board {
 
     /// Check if the game is over, as a result of the lastmove!
     pub fn isover(&self) -> Option<Result> {
-        // Convert the onturn player to a result player type.
-        let result = |player: Players| -> Option<Result> {
-            match player {
-                Player1 => Some(Result::Player1),
-                Player2 => Some(Result::Player2),
-            }
-        };
-
         // No one can win within just 8 moves, at least 9 are needed.
         if self.movecount <= 8 {
             return None;
@@ -218,11 +227,11 @@ impl Board {
         // Check if the (previous) player has finished a square.
         // Also check the double square if applicable.
         if check_square(self.lastmove.0) {
-            return result(self.onturn.other());
+            return Some(Result::from_player(&self.onturn.other()));
         }
         if let Some((square, _)) = Board::double(self.lastmove.0, self.lastmove.1) {
             if check_square(square) {
-                return result(self.onturn.other());
+                return Some(Result::from_player(&self.onturn.other()));
             }
         }
 
@@ -239,8 +248,8 @@ impl Board {
                     .count()
             };
             match square_count_onturn {
-                c if c > 2 => return result(self.onturn),
-                _ => return result(self.onturn.other()),
+                c if c > 2 => return Some(Result::from_player(&self.onturn)),
+                _ => return Some(Result::from_player(&self.onturn.other())),
             }
         }
 
@@ -251,7 +260,7 @@ impl Board {
 
         // Check if the player onturn still has stones left.
         if self.stones[self.onturn as usize] == 0 {
-            return result(self.onturn);
+            return Some(Result::from_player(&self.onturn));
         }
 
         return None; // The game is not over yet.
@@ -262,8 +271,13 @@ impl Board {
         self.movecount
     }
 
+    /// Return how many turns in a row pieces have been taken.
+    pub fn takestreak(&self) -> u8 {
+        self.takestreak
+    }
+
     /// Return the player onturn.
-    pub fn onturn(&self) -> Players {
+    pub fn onturn(&self) -> player::Players {
         self.onturn
     }
 
@@ -364,7 +378,7 @@ mod tests {
 
         assert_eq!(board1.state, 0b00000_10100_00001_00101_11100);
         assert_eq!(board1.mask, 0b01001_10111_11111_01101_11111);
-        assert_eq!(board1.onturn, Player2);
+        assert_eq!(board1.onturn, player::Players::Player2);
         assert_eq!(board1.stones, [4, 5]);
         assert_eq!(board1.lastmove, (2, 2));
         assert_eq!(board1.takestreak, 0);
@@ -374,7 +388,7 @@ mod tests {
 
         assert_eq!(board2.state, 0b01001_00001_10110_01000_00011);
         assert_eq!(board2.mask, 0b01001_10111_11111_01101_11111);
-        assert_eq!(board2.onturn, Player1);
+        assert_eq!(board2.onturn, player::Players::Player1);
         assert_eq!(board2.stones, [5, 4]);
         assert_eq!(board2.lastmove, (2, 3));
         assert_eq!(board2.takestreak, 1);
@@ -389,7 +403,7 @@ mod tests {
 
         assert_eq!(board.state, 0b00000_00000_00000_00000_00000);
         assert_eq!(board.mask, 0b00000_10000_00000_00000_00000);
-        assert_eq!(board.onturn, Player2);
+        assert_eq!(board.onturn, player::Players::Player2);
         assert_eq!(board.stones, [11, 12]);
         assert_eq!(board.lastmove, (3, 4));
         assert_eq!(board.takestreak, 0);
@@ -399,7 +413,7 @@ mod tests {
 
         assert_eq!(board.state, 0b00000_10000_00000_00000_00000);
         assert_eq!(board.mask, 0b00010_10000_00000_00000_00000);
-        assert_eq!(board.onturn, Player1);
+        assert_eq!(board.onturn, player::Players::Player1);
         assert_eq!(board.stones, [11, 11]);
         assert_eq!(board.lastmove, (4, 1));
         assert_eq!(board.takestreak, 0);
@@ -653,5 +667,29 @@ mod tests {
                 "+-----------+---+-----------+\n",
             )
         );
+    }
+
+    #[test]
+    fn clone() {
+        let board = Board::load("0020").unwrap();
+        let mut board_clone = board.clone();
+
+        assert_eq!(board.state, board_clone.state);
+        assert_eq!(board.mask, board_clone.mask);
+        assert_eq!(board.onturn, board_clone.onturn);
+        assert_eq!(board.stones[0], board_clone.stones[0]);
+        assert_eq!(board.stones[1], board_clone.stones[1]);
+        assert_eq!(board.lastmove.0, board_clone.lastmove.0);
+        assert_eq!(board.lastmove.1, board_clone.lastmove.1);
+        assert_eq!(board.takestreak, board_clone.takestreak);
+        assert_eq!(board.movecount, board_clone.movecount);
+
+        board_clone.play(0, 1);
+        board_clone.play(1, 4);
+
+        assert_ne!(board.stones[0], board_clone.stones[0]);
+        assert_ne!(board.stones[1], board_clone.stones[1]);
+        assert_ne!(board.lastmove.0, board_clone.lastmove.0);
+        assert_ne!(board.lastmove.1, board_clone.lastmove.1);
     }
 }

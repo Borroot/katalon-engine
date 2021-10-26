@@ -4,5 +4,6 @@ pub mod board;
 pub mod game;
 
 pub mod human;
+pub mod minmax;
 pub mod player;
 pub mod random;

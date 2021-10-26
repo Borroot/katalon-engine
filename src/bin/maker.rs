@@ -149,6 +149,8 @@ fn help() {
         "u undo: undo last move\n",
         "n new: new game\n",
         "l load: load game\n",
+        "c count: print movecount\n",
+        "t takestreak: print takestreak\n",
         "p print: print board\n",
         "q quit: quit the maker\n",
         "h help: show this help",
@@ -165,6 +167,8 @@ fn parse(line: String, state: &mut State) -> bool {
             "u" | "undo" => undo(state),
             "n" | "new" => reset(state),
             "l" | "load" => load(&args, state),
+            "c" | "count" => println!("movecount: {}", state.board.movecount()),
+            "t" | "takestreak" => println!("takestreak: {}", state.board.takestreak()),
             "p" | "print" => print!("{}", state),
             "q" | "quit" => return true,
             "h" | "help" => help(),
@@ -174,8 +178,8 @@ fn parse(line: String, state: &mut State) -> bool {
     return false;
 }
 
-fn input() -> String {
-    print!("> ");
+fn input(player: &str) -> String {
+    print!("{} > ", player);
     io::stdout().flush().unwrap();
 
     let mut line = String::new();
@@ -189,7 +193,7 @@ fn main() {
     print!("{}", state.board);
 
     loop {
-        let line = input();
+        let line = input(&state.board.onturn().to_string());
         if parse(line, &mut state) {
             break;
         }

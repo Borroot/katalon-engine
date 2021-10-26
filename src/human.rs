@@ -9,7 +9,7 @@ impl player::Player for Human {
     fn play(&self, board: &board::Board) -> (u8, u8) {
         loop {
             // Read the input
-            print!("(Player {}) > ", board.onturn());
+            print!("{} > ", board.onturn());
             io::stdout().flush().unwrap();
 
             let mut line = String::new();
