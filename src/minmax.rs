@@ -10,7 +10,7 @@ impl Minmax {
     pub fn evaluate(board: &board::Board) -> isize {
         Minmax::humanize_relative(
             board.movecount() as isize,
-            negamax(board, 1, &board.onturn()),
+            negamax(board, -isize::MAX, isize::MAX, 1, &board.onturn()),
         )
     }
 
@@ -48,7 +48,7 @@ impl player::Player for Minmax {
             let mut child = node.clone();
             child.play(square, cell);
 
-            let value = -negamax(&child, -1, &me);
+            let value = -negamax(&child, -isize::MAX, isize::MAX, -1, &me);
 
             if value > max {
                 max = value;
@@ -94,8 +94,14 @@ fn moves(node: &board::Board) -> Vec<(u8, u8)> {
     }
 }
 
-fn negamax(node: &board::Board, color: isize, root: &player::Players) -> isize {
-    // Compute the result
+fn negamax(
+    node: &board::Board,
+    mut alpha: isize,
+    beta: isize,
+    color: isize,
+    root: &player::Players,
+) -> isize {
+    // Compute the value of the leaf node
     let result = node.isover();
     if result != None {
         return color * evaluate(&result.unwrap(), root, node.movecount());
@@ -111,7 +117,12 @@ fn negamax(node: &board::Board, color: isize, root: &player::Players) -> isize {
         let mut child = node.clone();
         child.play(square, cell);
 
-        value = cmp::max(value, -negamax(&child, -color, root));
+        value = cmp::max(value, -negamax(&child, -beta, -alpha, -color, root));
+        alpha = cmp::max(alpha, value);
+
+        if alpha >= beta {
+            break;
+        }
     }
     return value;
 }
@@ -164,7 +175,9 @@ mod tests {
         // move is made, it will be a draw.
         let start = String::from("20033102212432011410302234201");
         let cycle = "21103".repeat(6);
-        let cycle = cycle.get(..board::Board::TAKESTREAK_LIMIT as usize - 3).unwrap();
+        let cycle = cycle
+            .get(..board::Board::TAKESTREAK_LIMIT as usize - 3)
+            .unwrap();
 
         let board = board::Board::load(&(start + cycle)).unwrap();
         assert_eq!(Minmax::evaluate(&board), 0);
