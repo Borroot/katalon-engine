@@ -1,10 +1,11 @@
 use katalon::{board, minmax, player};
+use cmd::Cmd;
 use rand::prelude::*;
 use regex;
 use std::io::{self, Write};
 use std::{fmt, time};
 
-struct State {
+pub struct State {
     board: board::Board,
     notation: String,
 }
@@ -19,36 +20,23 @@ impl fmt::Display for State {
     }
 }
 
-trait Command {
-    fn run(state: &mut State, args: &[&str]) -> bool;
-}
+mod cmd {
+    use super::*;
 
-struct Play;
-struct Undo;
-struct Eval;
-struct Best;
-struct Reset;
-struct Load;
-struct Count;
-struct Take;
-struct Print;
-struct Quit;
-struct Help;
+    /// Signature of command function pointers.
+    pub type Cmd = fn(&mut State, &[&str]) -> bool;
 
-impl Play {
-    fn regex() -> regex::Regex {
+    pub fn play_regex() -> regex::Regex {
         regex::Regex::new(r"^(?P<square>[0-4]?)(?P<cell>[0-4])$").unwrap()
     }
-}
 
-impl Command for Play {
-    fn run(state: &mut State, args: &[&str]) -> bool {
+    pub fn play(state: &mut State, args: &[&str]) -> bool {
         if state.board.isover() != None {
             println!("Warn: the game already finished.");
             return false;
         }
 
-        let caps = Play::regex().captures(args[0]).unwrap();
+        let caps = cmd::play_regex().captures(args[0]).unwrap();
 
         let cell = caps.name("cell").unwrap().as_str().chars().next().unwrap();
         let cell = cell as u8 - '0' as u8;
@@ -103,10 +91,8 @@ impl Command for Play {
         }
         false
     }
-}
 
-impl Command for Undo {
-    fn run(state: &mut State, _args: &[&str]) -> bool {
+    pub fn undo(state: &mut State, _args: &[&str]) -> bool {
         match state.board.movecount() {
             0 => return false,
             1 => {
@@ -121,10 +107,8 @@ impl Command for Undo {
         print!("{}", state);
         false
     }
-}
 
-impl Command for Eval {
-    fn run(state: &mut State, _args: &[&str]) -> bool {
+    pub fn eval(state: &mut State, _args: &[&str]) -> bool {
         if state.board.isover() != None {
             println!("Warn: the game already finished.");
             return false;
@@ -146,10 +130,8 @@ impl Command for Eval {
 
         false
     }
-}
 
-impl Command for Best {
-    fn run(state: &mut State, _args: &[&str]) -> bool {
+    pub fn best(state: &mut State, _args: &[&str]) -> bool {
         if state.board.isover() != None {
             println!("Warn: the game already finished.");
             return false;
@@ -176,34 +158,30 @@ impl Command for Best {
         builder.push_str(&bestmove.1.to_string());
         let args = vec![builder.as_str()];
 
-        Play::run(state, &args[..]);
+        cmd::play(state, &args[..]);
 
         false
     }
-}
 
-impl Command for Reset {
-    fn run(state: &mut State, _args: &[&str]) -> bool {
+    pub fn reset(state: &mut State, _args: &[&str]) -> bool {
         state.board = board::Board::new();
         state.notation.clear();
 
         print!("{}", state);
         false
     }
-}
 
-impl Command for Load {
-    fn run(state: &mut State, args: &[&str]) -> bool {
-        if args.len() == 0 {
+    pub fn load(state: &mut State, args: &[&str]) -> bool {
+        if args.len() < 2 {
             println!("Error: please provide a game to load.");
             return false;
         }
 
-        let board = board::Board::load(args[0]);
+        let board = board::Board::load(args[1]);
         match board {
             Ok(board) => {
                 state.board = board;
-                state.notation = String::from(args[0]);
+                state.notation = String::from(args[1]);
                 print!("{}", state);
             }
             Err(e) => {
@@ -212,37 +190,27 @@ impl Command for Load {
         }
         false
     }
-}
 
-impl Command for Count {
-    fn run(state: &mut State, _args: &[&str]) -> bool {
+    pub fn count(state: &mut State, _args: &[&str]) -> bool {
         println!("movecount: {}", state.board.movecount());
         false
     }
-}
 
-impl Command for Take {
-    fn run(state: &mut State, _args: &[&str]) -> bool {
+    pub fn take(state: &mut State, _args: &[&str]) -> bool {
         println!("takestreak: {}", state.board.takestreak());
         false
     }
-}
 
-impl Command for Print {
-    fn run(state: &mut State, _args: &[&str]) -> bool {
+    pub fn print(state: &mut State, _args: &[&str]) -> bool {
         print!("{}", state);
         false
     }
-}
 
-impl Command for Quit {
-    fn run(_state: &mut State, _args: &[&str]) -> bool {
+    pub fn quit(_state: &mut State, _args: &[&str]) -> bool {
         true
     }
-}
 
-impl Command for Help {
-    fn run(_state: &mut State, _args: &[&str]) -> bool {
+    pub fn help(_state: &mut State, _args: &[&str]) -> bool {
         println!(concat!(
             "[0-4]<0-4>: make move\n",
             "u undo: undo last move\n",
@@ -260,7 +228,7 @@ impl Command for Help {
     }
 }
 
-fn command(state: &mut State, prevcmd: &mut Option<&str>) -> bool {
+fn command(state: &mut State, prevcmd: &mut Option<Cmd>) -> bool {
     // Get the user command input
     print!("{} > ", state.board.onturn());
     io::stdout().flush().unwrap();
@@ -268,53 +236,52 @@ fn command(state: &mut State, prevcmd: &mut Option<&str>) -> bool {
     let mut line = String::new();
     io::stdin().read_line(&mut line).unwrap();
 
-    let quit;
+    let cmd: Option<Cmd>;
 
     // Process the command
     let args: Vec<&str> = line.split_whitespace().collect();
     if args.len() > 0 {
-        quit = match args[0] {
-            input if Play::regex().is_match(input) => Play::run(state, &args[0..]),
-            "u" | "undo" => Undo::run(state, &args[1..]),
-            "e" | "eval" => Eval::run(state, &args[1..]),
-            "b" | "best" => Best::run(state, &args[1..]),
-            "r" | "reset" => Reset::run(state, &args[1..]),
-            "l" | "load" => Load::run(state, &args[1..]),
-            "c" | "count" => Count::run(state, &args[1..]),
-            "t" | "take" => Take::run(state, &args[1..]),
-            "p" | "print" => Print::run(state, &args[1..]),
-            "q" | "quit" => Quit::run(state, &args[1..]),
-            "h" | "help" => Help::run(state, &args[1..]),
+        cmd = match args[0] {
+            input if cmd::play_regex().is_match(input) => Some(cmd::play),
+            "u" | "undo" => Some(cmd::undo),
+            "e" | "eval" => Some(cmd::eval),
+            "b" | "best" => Some(cmd::best),
+            "r" | "reset" => Some(cmd::reset),
+            "l" | "load" => Some(cmd::load),
+            "c" | "count" => Some(cmd::count),
+            "t" | "take" => Some(cmd::take),
+            "p" | "print" => Some(cmd::print),
+            "q" | "quit" => Some(cmd::quit),
+            "h" | "help" => Some(cmd::help),
             _ => {
                 println!("Error: invalid command, see 'help'.");
-                false
+                None
             }
         };
 
         // Update the prevcmd
         match args[0] {
-            "u" | "undo" => *prevcmd = Some("undo"),
-            "b" | "best" => *prevcmd = Some("best"),
+            "u" | "undo" => *prevcmd = Some(cmd::undo),
+            "b" | "best" => *prevcmd = Some(cmd::best),
             _ => *prevcmd = None,
         }
     } else {
         // Run the previous cmd if none was given
-        quit = match prevcmd {
-            Some("undo") => Undo::run(state, &args[..]),
-            Some("best") => Best::run(state, &args[..]),
-            Some(_) | None => false,
-        }
+        cmd = *prevcmd;
     }
 
-    quit
+    match cmd {
+        Some(f) => f(state, &args[..]),
+        None => false,
+    }
 }
 
 fn main() {
+    let mut prevcmd: Option<Cmd> = None;
     let mut state = State {
         board: board::Board::new(),
         notation: String::new(),
     };
-    let mut prevcmd = None;
 
     print!("{}", state.board);
     loop {

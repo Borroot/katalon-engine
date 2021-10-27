@@ -1,4 +1,4 @@
-use katalon::{board, game, player};
+use katalon::{board, game};
 
 #[allow(unused_imports)]
 use katalon::{human, minmax, random};
