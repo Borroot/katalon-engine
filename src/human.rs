@@ -40,12 +40,11 @@ impl player::Player for Human {
                         "{}",
                         format!(
                             concat!(
-                                "Error: you provided the square {}, ",
-                                "but the square constraint is on {}.\n",
+                                "Error: square should be {}, not {}.\n",
                                 "Hint: you don't have to specify the square.",
                             ),
-                            square,
-                            board.square().unwrap()
+                            board.square().unwrap(),
+                            square
                         )
                     );
                     continue;
