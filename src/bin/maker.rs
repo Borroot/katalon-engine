@@ -1,5 +1,5 @@
 use cmd::Cmd;
-use katalon::{board, minmax, player};
+use katalon::{board, solver};
 use rand::prelude::*;
 use regex;
 use std::io::{self, Write};
@@ -84,9 +84,8 @@ mod cmd {
         print!("{}", state);
 
         match state.board.isover() {
-            Some(board::Result::Player1) => println!("Player {} won!", player::Players::Player1),
-            Some(board::Result::Player2) => println!("Player {} won!", player::Players::Player2),
             Some(board::Result::Draw) => println!("It's a draw!"),
+            Some(result) => println!("Player {} won!", result.player().unwrap()),
             None => (),
         }
         false
@@ -128,9 +127,9 @@ mod cmd {
 
         let result = {
             if timeout == None {
-                Ok(minmax::Minmax::bestmoves(&state.board))
+                Ok(solver::Solver::bestmoves(&state.board))
             } else {
-                minmax::Minmax::bestmoves_timeout(
+                solver::Solver::bestmoves_timeout(
                     &state.board,
                     time::Duration::from_secs(timeout.unwrap()),
                 )
@@ -143,7 +142,7 @@ mod cmd {
         }
 
         let (mut value, bestmoves) = result.unwrap();
-        value = minmax::Minmax::humanize_relative(state.board.movecount() as isize, value);
+        value = solver::Solver::humanize_relative(state.board.movecount() as isize, value);
 
         println!(
             "evaluation: {} in {}ms\nmoves: {:?}",
@@ -175,9 +174,9 @@ mod cmd {
 
         let result = {
             if timeout == None {
-                Ok(minmax::Minmax::bestmoves(&state.board))
+                Ok(solver::Solver::bestmoves(&state.board))
             } else {
-                minmax::Minmax::bestmoves_timeout(
+                solver::Solver::bestmoves_timeout(
                     &state.board,
                     time::Duration::from_secs(timeout.unwrap()),
                 )
@@ -190,7 +189,7 @@ mod cmd {
         }
 
         let (mut value, bestmoves) = result.unwrap();
-        value = minmax::Minmax::humanize_relative(state.board.movecount() as isize, value);
+        value = solver::Solver::humanize_relative(state.board.movecount() as isize, value);
 
         let mut rng = rand::thread_rng();
         let bestmove = bestmoves[rng.gen_range(0..bestmoves.len()) as usize];

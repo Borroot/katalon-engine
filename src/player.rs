@@ -3,10 +3,11 @@ use std::fmt;
 use Players::*;
 
 pub trait Player {
+    // TODO maybe refactor to just be a function pointer
     fn play(&self, board: &board::Board) -> (u8, u8);
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Players {
     Player1,
     Player2,

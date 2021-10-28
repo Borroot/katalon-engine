@@ -5,18 +5,20 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
-/// A player directed by the minmax algorithm.
-pub struct Minmax;
+// TODO refactor to use Eval
 
-impl player::Player for Minmax {
+/// A player directed by the minmax algorithm.
+pub struct Solver;
+
+impl player::Player for Solver {
     fn play(&self, node: &board::Board) -> (u8, u8) {
-        let (_, bestmoves) = Minmax::bestmoves(node);
+        let (_, bestmoves) = Solver::bestmoves(node);
         let mut rng = rand::thread_rng();
         bestmoves[rng.gen_range(0..bestmoves.len()) as usize]
     }
 }
 
-impl Minmax {
+impl Solver {
     /// Return all of the best moves and the pure evaluation.
     pub fn bestmoves(node: &board::Board) -> (isize, Vec<(u8, u8)>) {
         let mut bestmoves: Vec<(u8, u8)> = Vec::new();
@@ -52,7 +54,7 @@ impl Minmax {
         let node_clone = node.clone();
 
         thread::spawn(move || {
-            let _ = sender.send(Minmax::bestmoves(&node_clone));
+            let _ = sender.send(Solver::bestmoves(&node_clone));
         });
         receiver.recv_timeout(timeout)
     }
@@ -69,8 +71,8 @@ impl Minmax {
     /// E.g. -8 if loss in 8 moves and 10 if win in 10 moves.
     pub fn humanize_relative(movecount: isize, value: isize) -> isize {
         match value {
-            v if v < 0 => Minmax::humanize_absolute(value) + movecount,
-            v if v > 0 => Minmax::humanize_absolute(value) - movecount,
+            v if v < 0 => Solver::humanize_absolute(value) + movecount,
+            v if v > 0 => Solver::humanize_absolute(value) - movecount,
             _ => 0,
         }
     }
@@ -80,7 +82,7 @@ impl Minmax {
 /// Return  isize::MAX - movecount if won
 /// Return -isize::MAX + movecount if loss
 /// Return 0 if draw.
-fn evaluate(result: &board::Result, root: &player::Players, movecount: u16) -> isize {
+fn evaluate(result: &board::Result, root: &player::Players, movecount: u8) -> isize {
     match result.player() {
         Some(player) => {
             if player == *root {
@@ -106,12 +108,8 @@ fn moves(node: &board::Board) -> Vec<(u8, u8)> {
     }
 }
 
-fn negamax(
-    node: &board::Board,
-    mut alpha: isize,
-    beta: isize,
-    color: isize,
-    root: &player::Players,
+fn negamax(node: &board::Board, mut alpha: isize, beta: isize,
+    color: isize, root: &player::Players,
 ) -> isize {
     // Compute the value of the leaf node
     let result = node.isover();
@@ -146,7 +144,7 @@ mod tests {
 
     /// Return the humanized evaluation of the given board.
     fn evaluate(board: &board::Board) -> isize {
-        Minmax::humanize_relative(board.movecount() as isize, Minmax::bestmoves(board).0)
+        Solver::humanize_relative(board.movecount() as isize, Solver::bestmoves(board).0)
     }
 
     /// Test if minmax detects the winning play.
@@ -154,12 +152,12 @@ mod tests {
     fn win_one_option() {
         // As player1, depth 1
         let board1 = board::Board::load("202123242").unwrap();
-        assert_eq!(Minmax.play(&board1), (2, 2));
+        assert_eq!(Solver.play(&board1), (2, 2));
         assert_eq!(evaluate(&board1), 1);
 
         // As player2, depth 1
         let board2 = board::Board::load("0020103040").unwrap();
-        assert_eq!(Minmax.play(&board2), (0, 0));
+        assert_eq!(Solver.play(&board2), (0, 0));
         assert_eq!(evaluate(&board2), 1);
 
         // As player1, depth 2
@@ -171,7 +169,7 @@ mod tests {
     fn win_two_options() {
         // As player2, depth 3
         let board1 = board::Board::load("2200103024131211424323").unwrap();
-        assert_eq!(Minmax.play(&board1), (3, 3));
+        assert_eq!(Solver.play(&board1), (3, 3));
         assert_eq!(evaluate(&board1), 3);
     }
 
@@ -180,7 +178,7 @@ mod tests {
     fn loss_one_option() {
         // As player1, depth 2
         let board1 = board::Board::load("22001030241312114243233").unwrap();
-        assert_eq!(Minmax.play(&board1), (3, 4));
+        assert_eq!(Solver.play(&board1), (3, 4));
         assert_eq!(evaluate(&board1), -2);
     }
 

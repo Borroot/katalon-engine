@@ -3,7 +3,9 @@
 pub mod board;
 pub mod game;
 
+pub mod eval;
+
 pub mod human;
-pub mod minmax;
 pub mod player;
 pub mod random;
+pub mod solver;

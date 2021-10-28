@@ -55,12 +55,13 @@ pub struct Board {
     takestreak: u8,
 
     /// The number of moves that have been made.
-    movecount: u16,
+    movecount: u8,
 }
 
 impl Board {
     /// The maximum number of takes that are allowed to be made in a row.
     /// Using 15 makes it fit nicely into four bits.
+    /// Using 15 also makes sure that the movecount fits in a u8.
     pub const TAKESTREAK_LIMIT: u8 = 15;
 
     /// Create a new empty board.
@@ -268,7 +269,7 @@ impl Board {
     }
 
     /// Return how many moves have been made this game.
-    pub fn movecount(&self) -> u16 {
+    pub fn movecount(&self) -> u8 {
         self.movecount
     }
 
