@@ -1,26 +1,30 @@
 use crate::{board, player};
 use rand::prelude::*;
 use std::cmp;
+use std::sync::mpsc;
+use std::thread;
+use std::time::Duration;
 
 /// A player directed by the minmax algorithm.
 pub struct Minmax;
 
-// TODO cleanup
-impl Minmax {
-    // TODO return the evaluation of all the moves
+impl player::Player for Minmax {
+    fn play(&self, node: &board::Board) -> (u8, u8) {
+        let (_, bestmoves) = Minmax::bestmoves(node);
+        let mut rng = rand::thread_rng();
+        bestmoves[rng.gen_range(0..bestmoves.len()) as usize]
+    }
+}
 
+impl Minmax {
     /// Return all of the best moves and the pure evaluation.
     pub fn bestmoves(node: &board::Board) -> (isize, Vec<(u8, u8)>) {
         let mut bestmoves: Vec<(u8, u8)> = Vec::new();
         let mut max = isize::MIN;
 
         let me = node.onturn();
-
-        // Generate and sort the children
         let moves = moves(&node);
-        // TODO sort
 
-        // TODO also use alpha and beta here
         for (square, cell) in moves {
             let mut child = node.clone();
             child.play(square, cell);
@@ -35,12 +39,22 @@ impl Minmax {
                 bestmoves.push((square, cell));
             }
         }
+        // TODO return the evaluation of all the moves
         (max, bestmoves)
     }
 
-    /// Return the humanized evaluation of the given board.
-    fn evaluate(board: &board::Board) -> isize {
-        Minmax::humanize_relative(board.movecount() as isize, Minmax::bestmoves(board).0)
+    /// Return all of the best moves if finished within the specified time.
+    pub fn bestmoves_timeout(
+        node: &board::Board,
+        timeout: Duration,
+    ) -> Result<(isize, Vec<(u8, u8)>), mpsc::RecvTimeoutError> {
+        let (sender, receiver) = mpsc::channel();
+        let node_clone = node.clone();
+
+        thread::spawn(move || {
+            let _ = sender.send(Minmax::bestmoves(&node_clone));
+        });
+        receiver.recv_timeout(timeout)
     }
 
     /// E.g. -25 if loss on the 25th move and 10 if win on the 10th move.
@@ -59,14 +73,6 @@ impl Minmax {
             v if v > 0 => Minmax::humanize_absolute(value) - movecount,
             _ => 0,
         }
-    }
-}
-
-impl player::Player for Minmax {
-    fn play(&self, node: &board::Board) -> (u8, u8) {
-        let (_, bestmoves) = Minmax::bestmoves(node);
-        let mut rng = rand::thread_rng();
-        bestmoves[rng.gen_range(0..bestmoves.len()) as usize]
     }
 }
 
@@ -138,22 +144,27 @@ mod tests {
     use super::*;
     use crate::player::Player;
 
+    /// Return the humanized evaluation of the given board.
+    fn evaluate(board: &board::Board) -> isize {
+        Minmax::humanize_relative(board.movecount() as isize, Minmax::bestmoves(board).0)
+    }
+
     /// Test if minmax detects the winning play.
     #[test]
     fn win_one_option() {
         // As player1, depth 1
         let board1 = board::Board::load("202123242").unwrap();
         assert_eq!(Minmax.play(&board1), (2, 2));
-        assert_eq!(Minmax::evaluate(&board1), 1);
+        assert_eq!(evaluate(&board1), 1);
 
         // As player2, depth 1
         let board2 = board::Board::load("0020103040").unwrap();
         assert_eq!(Minmax.play(&board2), (0, 0));
-        assert_eq!(Minmax::evaluate(&board2), 1);
+        assert_eq!(evaluate(&board2), 1);
 
         // As player1, depth 2
         let board3 = board::Board::load("01234321042244114110033").unwrap();
-        assert_eq!(Minmax::evaluate(&board3), 2);
+        assert_eq!(evaluate(&board3), 2);
     }
 
     #[test]
@@ -161,7 +172,7 @@ mod tests {
         // As player2, depth 3
         let board1 = board::Board::load("2200103024131211424323").unwrap();
         assert_eq!(Minmax.play(&board1), (3, 3));
-        assert_eq!(Minmax::evaluate(&board1), 3);
+        assert_eq!(evaluate(&board1), 3);
     }
 
     /// Test if minmax detects its gonna lose.
@@ -170,7 +181,7 @@ mod tests {
         // As player1, depth 2
         let board1 = board::Board::load("22001030241312114243233").unwrap();
         assert_eq!(Minmax.play(&board1), (3, 4));
-        assert_eq!(Minmax::evaluate(&board1), -2);
+        assert_eq!(evaluate(&board1), -2);
     }
 
     /// Test if minmax detects its gonna be a draw.
@@ -186,6 +197,6 @@ mod tests {
             .unwrap();
 
         let board = board::Board::load(&(start + cycle)).unwrap();
-        assert_eq!(Minmax::evaluate(&board), 0);
+        assert_eq!(evaluate(&board), 0);
     }
 }

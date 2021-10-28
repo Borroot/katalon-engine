@@ -1,5 +1,5 @@
-use katalon::{board, minmax, player};
 use cmd::Cmd;
+use katalon::{board, minmax, player};
 use rand::prelude::*;
 use regex;
 use std::io::{self, Write};
@@ -108,17 +108,41 @@ mod cmd {
         false
     }
 
-    pub fn eval(state: &mut State, _args: &[&str]) -> bool {
+    pub fn eval(state: &mut State, args: &[&str]) -> bool {
         if state.board.isover() != None {
             println!("Warn: the game already finished.");
             return false;
         }
 
-        // TODO add a timeout parameter
+        let mut timeout = Some(10);
+
+        if args.len() > 1 {
+            if let Ok(time) = args[1].parse::<u64>() {
+                timeout = Some(time);
+            } else {
+                println!("Warn: invalid timeout ignored");
+            }
+        }
 
         let now = time::Instant::now();
 
-        let (mut value, bestmoves) = minmax::Minmax::bestmoves(&state.board);
+        let result = {
+            if timeout == None {
+                Ok(minmax::Minmax::bestmoves(&state.board))
+            } else {
+                minmax::Minmax::bestmoves_timeout(
+                    &state.board,
+                    time::Duration::from_secs(timeout.unwrap()),
+                )
+            }
+        };
+
+        if result.is_err() {
+            println!("timeout after {}s", timeout.unwrap());
+            return false;
+        }
+
+        let (mut value, bestmoves) = result.unwrap();
         value = minmax::Minmax::humanize_relative(state.board.movecount() as isize, value);
 
         println!(
@@ -131,15 +155,41 @@ mod cmd {
         false
     }
 
-    pub fn best(state: &mut State, _args: &[&str]) -> bool {
+    pub fn best(state: &mut State, args: &[&str]) -> bool {
         if state.board.isover() != None {
             println!("Warn: the game already finished.");
             return false;
         }
 
+        let mut timeout = Some(10);
+
+        if args.len() > 1 {
+            if let Ok(time) = args[1].parse::<u64>() {
+                timeout = Some(time);
+            } else {
+                println!("Warn: invalid timeout ignored");
+            }
+        }
+
         let now = time::Instant::now();
 
-        let (mut value, bestmoves) = minmax::Minmax::bestmoves(&state.board);
+        let result = {
+            if timeout == None {
+                Ok(minmax::Minmax::bestmoves(&state.board))
+            } else {
+                minmax::Minmax::bestmoves_timeout(
+                    &state.board,
+                    time::Duration::from_secs(timeout.unwrap()),
+                )
+            }
+        };
+
+        if result.is_err() {
+            println!("timeout after {}s", timeout.unwrap());
+            return false;
+        }
+
+        let (mut value, bestmoves) = result.unwrap();
         value = minmax::Minmax::humanize_relative(state.board.movecount() as isize, value);
 
         let mut rng = rand::thread_rng();
@@ -201,6 +251,14 @@ mod cmd {
         false
     }
 
+    pub fn square(state: &mut State, _args: &[&str]) -> bool {
+        match state.board.square() {
+            Some(square) => println!("square: {}", square),
+            None => println!("square: none"),
+        }
+        false
+    }
+
     pub fn print(state: &mut State, _args: &[&str]) -> bool {
         print!("{}", state);
         false
@@ -214,12 +272,13 @@ mod cmd {
         println!(concat!(
             "[0-4]<0-4>: make move\n",
             "u undo: undo last move\n",
-            "e eval: evaluate state\n",
-            "b best: make best move\n",
+            "e eval [timeout]: evaluate state\n",
+            "b best [timeout]: make best move\n",
             "r reset: reset game\n",
             "l load: load game\n",
             "c count: print movecount\n",
             "t take: print takestreak\n",
+            "s square: print square\n",
             "p print: print board\n",
             "q quit: quit the maker\n",
             "h help: show this help",
@@ -250,6 +309,7 @@ fn command(state: &mut State, prevcmd: &mut Option<Cmd>) -> bool {
             "l" | "load" => Some(cmd::load),
             "c" | "count" => Some(cmd::count),
             "t" | "take" => Some(cmd::take),
+            "s" | "square" => Some(cmd::square),
             "p" | "print" => Some(cmd::print),
             "q" | "quit" => Some(cmd::quit),
             "h" | "help" => Some(cmd::help),
@@ -268,6 +328,7 @@ fn command(state: &mut State, prevcmd: &mut Option<Cmd>) -> bool {
     } else {
         // Run the previous cmd if none was given
         cmd = *prevcmd;
+        // TODO also run with prevargs
     }
 
     match cmd {

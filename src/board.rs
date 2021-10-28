@@ -60,7 +60,8 @@ pub struct Board {
 
 impl Board {
     /// The maximum number of takes that are allowed to be made in a row.
-    pub const TAKESTREAK_LIMIT: u8 = 10;
+    /// Using 15 makes it fit nicely into four bits.
+    pub const TAKESTREAK_LIMIT: u8 = 15;
 
     /// Create a new empty board.
     pub fn new() -> Self {
