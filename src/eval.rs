@@ -14,9 +14,6 @@ pub struct Eval {
     result: Result,
     /// Number of moves to get to the result.
     distance: u8,
-    /// Total number of nodes evaluated, useful statistic.
-    cost: usize,
-    // TODO add move history
 }
 
 impl Eval {
@@ -24,26 +21,19 @@ impl Eval {
     pub const MIN: Self = Self {
         result: Result::Loss,
         distance: 0,
-        cost: 0,
     };
 
     // The best evaluation, already won.
     pub const MAX: Self = Self {
         result: Result::Win,
         distance: 0,
-        cost: 0,
     };
 
-    pub fn with_cost(result: Result, distance: u8, cost: usize) -> Self {
+    pub fn new(result: Result, distance: u8) -> Self {
         Self {
             result,
             distance,
-            cost,
         }
-    }
-
-    pub fn new(result: Result, distance: u8) -> Self {
-        Self::with_cost(result, distance, 0)
     }
 
     /// Consumes the evaluation and reverses the result.
