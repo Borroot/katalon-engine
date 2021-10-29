@@ -9,3 +9,5 @@ pub mod human;
 pub mod player;
 pub mod random;
 pub mod solver;
+
+pub mod input;

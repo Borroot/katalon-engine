@@ -1,8 +1,7 @@
 use cmd::Cmd;
 use katalon::{board, solver};
+use katalon::input;
 use rand::prelude::*;
-use regex;
-use std::io::{self, Write};
 use std::{fmt, time};
 
 pub struct State {
@@ -26,53 +25,18 @@ mod cmd {
     /// Signature of command function pointers.
     pub type Cmd = fn(&mut State, &[&str]) -> bool;
 
-    pub fn play_regex() -> regex::Regex {
-        regex::Regex::new(r"^(?P<square>[0-4]?)(?P<cell>[0-4])$").unwrap()
-    }
-
     pub fn play(state: &mut State, args: &[&str]) -> bool {
         if state.board.isover() != None {
             println!("Warn: the game already finished.");
             return false;
         }
 
-        let caps = cmd::play_regex().captures(args[0]).unwrap();
-
-        let cell = caps.name("cell").unwrap().as_str().chars().next().unwrap();
-        let cell = cell as u8 - '0' as u8;
-
-        let square;
-
-        if let Some(s) = caps.name("square").unwrap().as_str().chars().next() {
-            square = s as u8 - '0' as u8;
-
-            // Make sure the correct square is provided.
-            if !state.board.isfirst() && square != state.board.square().unwrap() {
-                println!(
-                    "{}",
-                    format!(
-                        concat!(
-                            "Error: square should be {}, not {}.\n",
-                            "Hint: you don't have to specify the square.",
-                        ),
-                        state.board.square().unwrap(),
-                        square
-                    )
-                );
-                return false;
-            }
-        } else {
-            if state.board.isfirst() {
-                println!("Error: please also provide the square.");
-                return false;
-            }
-            square = state.board.square().unwrap()
-        }
-
-        if !state.board.canplay(square, cell) {
-            println!("Error: illegal move.");
+        let extracted = input::extract(&state.board, &args[0]);
+        if let Err(e) = extracted {
+            println!("{}", e);
             return false;
         }
+        let (square, cell) = extracted.unwrap();
 
         // Update the board and notation
         if state.board.isfirst() {
@@ -123,6 +87,7 @@ mod cmd {
             }
         }
 
+        // TODO cleanup eval and best function, e.g. so no duplicate code
         let now = time::Instant::now();
 
         let result = {
@@ -288,19 +253,14 @@ mod cmd {
 
 fn command(state: &mut State, prevcmd: &mut Option<Cmd>) -> bool {
     // Get the user command input
-    print!("{} > ", state.board.onturn());
-    io::stdout().flush().unwrap();
-
-    let mut line = String::new();
-    io::stdin().read_line(&mut line).unwrap();
-
+    let line = input::request(format!("{} > ", state.board.onturn()));
     let cmd: Option<Cmd>;
 
     // Process the command
     let args: Vec<&str> = line.split_whitespace().collect();
     if args.len() > 0 {
         cmd = match args[0] {
-            input if cmd::play_regex().is_match(input) => Some(cmd::play),
+            input if input::move_regex().is_match(input) => Some(cmd::play),
             "u" | "undo" => Some(cmd::undo),
             "e" | "eval" => Some(cmd::eval),
             "b" | "best" => Some(cmd::best),
