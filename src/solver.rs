@@ -1,4 +1,4 @@
-use crate::{board, player};
+use crate::{board, eval, player};
 use rand::prelude::*;
 use std::cmp;
 use std::sync::mpsc;
@@ -108,8 +108,12 @@ fn moves(node: &board::Board) -> Vec<(u8, u8)> {
     }
 }
 
-fn negamax(node: &board::Board, mut alpha: isize, beta: isize,
-    color: isize, root: &player::Players,
+fn negamax(
+    node: &board::Board,
+    mut alpha: isize,
+    beta: isize,
+    color: isize,
+    root: &player::Players,
 ) -> isize {
     // Compute the value of the leaf node
     let result = node.isover();

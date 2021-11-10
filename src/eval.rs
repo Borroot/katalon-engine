@@ -1,10 +1,24 @@
-use std::cmp;
+use std::{cmp, fmt};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Result {
     Loss,
     Draw,
     Win,
+}
+
+impl fmt::Display for Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Result::Loss => "loss",
+                Result::Draw => "draw",
+                Result::Win => "win",
+            }
+        )
+    }
 }
 
 /// The evaluation value of a state.
@@ -30,10 +44,7 @@ impl Eval {
     };
 
     pub fn new(result: Result, distance: u8) -> Self {
-        Self {
-            result,
-            distance,
-        }
+        Self { result, distance }
     }
 
     /// Consumes the evaluation and reverses the result.
@@ -58,11 +69,9 @@ impl Eq for Eval {}
 impl Ord for Eval {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         match self.result.cmp(&other.result) {
-            cmp::Ordering::Equal => {
-                match self.result {
-                    Result::Win => self.distance.cmp(&other.distance).reverse(),
-                    _ => self.distance.cmp(&other.distance),
-                }
+            cmp::Ordering::Equal => match self.result {
+                Result::Win => self.distance.cmp(&other.distance).reverse(),
+                _ => self.distance.cmp(&other.distance),
             },
             result => result,
         }
@@ -72,6 +81,12 @@ impl Ord for Eval {
 impl PartialOrd for Eval {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+impl fmt::Display for Eval {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} in {}", self.result, self.distance)
     }
 }
 
@@ -158,5 +173,12 @@ mod tests {
         assert!(Eval::new(Result::Loss, 5) < Eval::new(Result::Draw, 5));
         assert!(Eval::new(Result::Loss, 5) < Eval::new(Result::Draw, 3));
         assert!(Eval::new(Result::Loss, 5) < Eval::new(Result::Draw, 7));
+    }
+
+    #[test]
+    fn eval_display() {
+        assert_eq!(format!("{}", Eval::new(Result::Loss, 25)), "loss in 25");
+        assert_eq!(format!("{}", Eval::new(Result::Draw, 0)), "draw in 0");
+        assert_eq!(format!("{}", Eval::new(Result::Win, 255)), "win in 255");
     }
 }

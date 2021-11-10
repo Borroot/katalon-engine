@@ -1,5 +1,5 @@
 use katalon::player::Player;
-use katalon::{board, solver, random};
+use katalon::{board, random, solver};
 use std::time;
 
 fn generate(depth: usize) -> (board::Board, String) {
@@ -39,14 +39,14 @@ fn generate(depth: usize) -> (board::Board, String) {
     }
 }
 
-fn evaluate(board: &board::Board, timeout: &time::Duration) -> Result<(isize, u128), ()>{
+fn evaluate(board: &board::Board, timeout: &time::Duration) -> Result<(isize, u128), ()> {
     let now = time::Instant::now();
 
     match solver::Solver::bestmoves_timeout(&board, *timeout) {
         Ok((mut eval, _)) => {
             eval = solver::Solver::humanize_relative(board.movecount() as isize, eval);
             return Ok((eval, now.elapsed().as_millis()));
-        },
+        }
         Err(_) => return Err(()),
     }
 }

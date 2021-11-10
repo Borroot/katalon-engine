@@ -1,6 +1,6 @@
 use cmd::Cmd;
-use katalon::{board, solver};
 use katalon::input;
+use katalon::{board, solver};
 use rand::prelude::*;
 use std::{fmt, time};
 

@@ -1,4 +1,4 @@
-use crate::{board, player, input};
+use crate::{board, input, player};
 
 /// A player controlled by a puny human.
 pub struct Human;

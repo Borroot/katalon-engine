@@ -22,16 +22,14 @@ fn extract_square(board: &board::Board, square: Option<u8>) -> Result<u8, String
     if let Some(square) = square {
         // Make sure the correct square is provided.
         if !board.isfirst() && square != board.square().unwrap() {
-            return Err(
-                format!(
-                    concat!(
-                        "Error: square should be {}, not {}.\n",
-                        "Hint: you don't have to specify the square.",
-                    ),
-                    board.square().unwrap(),
-                    square
-                )
-            );
+            return Err(format!(
+                concat!(
+                    "Error: square should be {}, not {}.\n",
+                    "Hint: you don't have to specify the square.",
+                ),
+                board.square().unwrap(),
+                square
+            ));
         }
         return Ok(square);
     } else {
@@ -49,11 +47,9 @@ pub fn extract(board: &board::Board, text: &str) -> Result<(u8, u8), String> {
     let re = move_regex();
     let caps = re.captures(text).unwrap();
 
-    let extract_number = |key: &str| {
-        match caps.name(key).unwrap().as_str().chars().next() {
-            Some(n) => Some(n as u8 - '0' as u8),
-            None => None,
-        }
+    let extract_number = |key: &str| match caps.name(key).unwrap().as_str().chars().next() {
+        Some(n) => Some(n as u8 - '0' as u8),
+        None => None,
     };
 
     let cell = extract_number("cell").unwrap();

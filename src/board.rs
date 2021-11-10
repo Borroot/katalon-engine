@@ -295,6 +295,35 @@ impl Board {
             square => Some(square),
         }
     }
+
+    /// Return a u64 uniquely identifying this state of the board.
+    pub fn key(&self) -> u64 {
+        // 4 bytes takestreak + 6 bytes lastmove + 1 byte onturn + 25 bytes mask + 25 bytes state
+        let mut key: u64 = 0;
+
+        // Take the first four bytes of the takestreak.
+        key += (self.takestreak as u64 & 0x0F) << 57;
+
+        // The 6 bytes of lastmove will only contain the square if that square
+        // is full and (square == cell or double(square, cell) != None).
+        key += {
+            let mut lastmove = (self.lastmove.1 as u64 & 0b111) << 51; // just the cell
+            let mask_square = 0b11111 << self.lastmove.0 * 5;
+            if self.mask & mask_square == mask_square
+                && (self.lastmove.0 == self.lastmove.1
+                    || Self::double(self.lastmove.0, self.lastmove.1) != None)
+            {
+                lastmove += (self.lastmove.0 as u64 & 0b111) << 54; // add the square
+            }
+            lastmove
+        };
+
+        // Add the player onturn: 0 if onturn == player1 else 1.
+        key += (self.onturn as u64) << 50;
+
+        // TODO add mask and state
+        key
+    }
 }
 
 impl fmt::Display for Board {

@@ -31,3 +31,17 @@ impl fmt::Display for Players {
         write!(f, "{}", symbol)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn indexing() {
+        assert_eq!(Players::Player1 as usize, 0);
+        assert_eq!(Players::Player2 as usize, 1);
+
+        assert_eq!(Players::Player1 as u64, 0);
+        assert_eq!(Players::Player2 as u64, 1);
+    }
+}

@@ -1,7 +1,7 @@
 use katalon::{board, game};
 
 #[allow(unused_imports)]
-use katalon::{human, solver, random};
+use katalon::{human, random, solver};
 
 fn main() {
     let player1 = Box::new(human::Human);
