@@ -92,12 +92,9 @@ mod cmd {
 
         let result = {
             if timeout == None {
-                Ok(solver::Solver::bestmoves(&state.board))
+                Ok(solver::bestmoves(&state.board))
             } else {
-                solver::Solver::bestmoves_timeout(
-                    &state.board,
-                    time::Duration::from_secs(timeout.unwrap()),
-                )
+                solver::bestmoves_timeout(&state.board, time::Duration::from_secs(timeout.unwrap()))
             }
         };
 
@@ -106,11 +103,10 @@ mod cmd {
             return false;
         }
 
-        let (mut value, bestmoves) = result.unwrap();
-        value = solver::Solver::humanize_relative(state.board.movecount() as isize, value);
+        let (value, bestmoves) = result.unwrap();
 
         println!(
-            "evaluation: {} in {}ms\nmoves: {:?}",
+            "evaluation: {} ({}ms)\nmoves: {:?}",
             value,
             now.elapsed().as_millis(),
             bestmoves
@@ -139,12 +135,9 @@ mod cmd {
 
         let result = {
             if timeout == None {
-                Ok(solver::Solver::bestmoves(&state.board))
+                Ok(solver::bestmoves(&state.board))
             } else {
-                solver::Solver::bestmoves_timeout(
-                    &state.board,
-                    time::Duration::from_secs(timeout.unwrap()),
-                )
+                solver::bestmoves_timeout(&state.board, time::Duration::from_secs(timeout.unwrap()))
             }
         };
 
@@ -153,14 +146,12 @@ mod cmd {
             return false;
         }
 
-        let (mut value, bestmoves) = result.unwrap();
-        value = solver::Solver::humanize_relative(state.board.movecount() as isize, value);
-
+        let (value, bestmoves) = result.unwrap();
         let mut rng = rand::thread_rng();
         let bestmove = bestmoves[rng.gen_range(0..bestmoves.len()) as usize];
 
         println!(
-            "evaluation: {} in {}ms\n{:?} -> {:?}",
+            "evaluation: {} ({}ms)\n{:?} -> {:?}",
             value,
             now.elapsed().as_millis(),
             bestmoves,

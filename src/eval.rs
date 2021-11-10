@@ -25,9 +25,9 @@ impl fmt::Display for Result {
 #[derive(Debug, Clone, Copy)]
 pub struct Eval {
     /// Result of the state from the root player perspective.
-    result: Result,
+    pub result: Result,
     /// Number of moves to get to the result.
-    distance: u8,
+    pub distance: u8,
 }
 
 impl Eval {
@@ -48,7 +48,7 @@ impl Eval {
     }
 
     /// Consumes the evaluation and reverses the result.
-    pub fn reverse(mut self) -> Self {
+    pub fn rev(mut self) -> Self {
         match self.result {
             Result::Loss => self.result = Result::Win,
             Result::Win => self.result = Result::Loss,
@@ -96,12 +96,12 @@ mod tests {
 
     #[test]
     fn reverse() {
-        assert!(Eval::MAX.reverse() == Eval::MIN);
-        assert!(Eval::MIN.reverse() == Eval::MAX);
+        assert!(Eval::MAX.rev() == Eval::MIN);
+        assert!(Eval::MIN.rev() == Eval::MAX);
 
-        assert!(Eval::new(Result::Loss, 5).reverse() == Eval::new(Result::Win, 5));
-        assert!(Eval::new(Result::Win, 5).reverse() == Eval::new(Result::Loss, 5));
-        assert!(Eval::new(Result::Draw, 5).reverse() == Eval::new(Result::Draw, 5));
+        assert!(Eval::new(Result::Loss, 5).rev() == Eval::new(Result::Win, 5));
+        assert!(Eval::new(Result::Win, 5).rev() == Eval::new(Result::Loss, 5));
+        assert!(Eval::new(Result::Draw, 5).rev() == Eval::new(Result::Draw, 5));
     }
 
     #[test]
