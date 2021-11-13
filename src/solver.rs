@@ -1,4 +1,4 @@
-use crate::{board, eval, player};
+use crate::{board, eval, player, table};
 use rand::prelude::*;
 use std::cmp;
 use std::sync::mpsc;
@@ -24,11 +24,20 @@ pub fn bestmoves(node: &board::Board) -> (eval::Eval, Vec<(u8, u8)>) {
     let rootcount = node.movecount();
     let moves = moves(&node);
 
+    let mut table = table::Table::<eval::Eval>::new(100003);
+
     for (square, cell) in moves {
         let mut child = node.clone();
         child.play(square, cell);
 
-        let value = negamax(&child, eval::Eval::MIN, eval::Eval::MAX, rootcount).rev();
+        let value = negamax(
+            &child,
+            eval::Eval::MIN,
+            eval::Eval::MAX,
+            rootcount,
+            &mut table,
+        )
+        .rev();
 
         if value > max {
             max = value;
@@ -89,11 +98,17 @@ fn negamax(
     mut alpha: eval::Eval,
     beta: eval::Eval,
     rootcount: u8,
+    table: &mut table::Table<eval::Eval>,
 ) -> eval::Eval {
     // Compute the value of the leaf node
     let result = node.isover();
     if result != None {
         return evaluate(result.unwrap(), node.onturn(), node.movecount() - rootcount);
+    }
+
+    // Check if we have already seen this node before.
+    if let Some(eval) = table.get(node.key()) {
+        return eval;
     }
 
     // Generate and sort the children
@@ -108,10 +123,14 @@ fn negamax(
 
         value = cmp::max(
             value,
-            negamax(&child, beta.rev(), alpha.rev(), rootcount).rev(),
+            negamax(&child, beta.rev(), alpha.rev(), rootcount, table).rev(),
         );
-        alpha = cmp::max(alpha, value);
 
+        // Save the evaluation in the table.
+        table.put(node.key(), value);
+
+        // Perform alpha beta pruning.
+        alpha = cmp::max(alpha, value);
         if alpha >= beta {
             break;
         }

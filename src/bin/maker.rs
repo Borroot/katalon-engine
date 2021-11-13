@@ -1,6 +1,6 @@
 use cmd::Cmd;
 use katalon::input;
-use katalon::{board, solver};
+use katalon::{board, player::Player, random, solver};
 use rand::prelude::*;
 use std::{fmt, time};
 
@@ -168,7 +168,17 @@ mod cmd {
         false
     }
 
-    pub fn reset(state: &mut State, _args: &[&str]) -> bool {
+    pub fn random(state: &mut State, _args: &[&str]) -> bool {
+        let (square, cell) = random::Random.play(&state.board);
+        let builder = format!("{}{}", square, cell);
+        // let args = [format!("{}{}", square, cell)];
+
+        cmd::play(state, &[&builder.as_str()]);
+
+        false
+    }
+
+    pub fn new(state: &mut State, _args: &[&str]) -> bool {
         state.board = board::Board::new();
         state.notation.clear();
 
@@ -229,7 +239,7 @@ mod cmd {
             "u undo: undo last move\n",
             "e eval [timeout]: evaluate state\n",
             "b best [timeout]: make best move\n",
-            "r reset: reset game\n",
+            "n new: new game\n",
             "l load: load game\n",
             "c count: print movecount\n",
             "t take: print takestreak\n",
@@ -255,7 +265,8 @@ fn command(state: &mut State, prevcmd: &mut Option<Cmd>) -> bool {
             "u" | "undo" => Some(cmd::undo),
             "e" | "eval" => Some(cmd::eval),
             "b" | "best" => Some(cmd::best),
-            "r" | "reset" => Some(cmd::reset),
+            "r" | "random" => Some(cmd::random),
+            "n" | "new" => Some(cmd::new),
             "l" | "load" => Some(cmd::load),
             "c" | "count" => Some(cmd::count),
             "t" | "take" => Some(cmd::take),
@@ -273,6 +284,7 @@ fn command(state: &mut State, prevcmd: &mut Option<Cmd>) -> bool {
         match args[0] {
             "u" | "undo" => *prevcmd = Some(cmd::undo),
             "b" | "best" => *prevcmd = Some(cmd::best),
+            "r" | "random" => *prevcmd = Some(cmd::random),
             _ => *prevcmd = None,
         }
     } else {

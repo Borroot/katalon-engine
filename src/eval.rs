@@ -47,6 +47,7 @@ impl Eval {
         Self { result, distance }
     }
 
+    // TODO dont consume but create a new object
     /// Consumes the evaluation and reverses the result.
     pub fn rev(mut self) -> Self {
         match self.result {
