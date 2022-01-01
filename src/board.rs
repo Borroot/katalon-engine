@@ -332,6 +332,7 @@ impl Board {
         key += self.state as u64;
 
         key
+        // TODO also create a version with symmetries
     }
 }
 

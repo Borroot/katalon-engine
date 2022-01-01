@@ -1,11 +1,14 @@
+// TODO Add collision detection so all states are saved.
+
 pub struct Table<T: Copy> {
-    table: Vec<Option<T>>,
+    // TODO remove pub here
+    pub table: Vec<(u64, Option<T>)>,
 }
 
 impl<T: Copy> Table<T> {
     pub fn new(size: usize) -> Table<T> {
         Table {
-            table: vec![None; size],
+            table: vec![(0, None); size],
         }
     }
 
@@ -15,11 +18,16 @@ impl<T: Copy> Table<T> {
 
     pub fn put(&mut self, key: u64, value: T) {
         let index = self.index(key);
-        self.table[index] = Some(value);
+        self.table[index] = (key, Some(value));
     }
 
     pub fn get(&self, key: u64) -> Option<T> {
-        self.table[self.index(key)]
+        if let (k, Some(value)) = self.table[self.index(key)] {
+            if k == key {
+                return Some(value);
+            }
+        }
+        None
     }
 }
 
@@ -40,14 +48,14 @@ mod tests {
 
         table.put(15, 5);
         assert_eq!(table.get(15), Some(5));
-        assert_eq!(table.get(5), Some(5));
+        assert_eq!(table.get(5), None);
 
-        table.put(211, 1);
-        assert_eq!(table.get(211), Some(1));
+        table.put(1, 1);
         assert_eq!(table.get(1), Some(1));
+        assert_eq!(table.get(211), None);
 
         table.put(13, 13);
         assert_eq!(table.get(13), Some(13));
-        assert_eq!(table.get(3), Some(13));
+        assert_eq!(table.get(3), None);
     }
 }

@@ -24,8 +24,11 @@ pub fn bestmoves(node: &board::Board) -> (eval::Eval, Vec<(u8, u8)>) {
     let rootcount = node.movecount();
     let moves = moves(&node);
 
-    let mut table = table::Table::<eval::Eval>::new(100003);
+    let tablesize = 19_999_999;  // TODO optimise table size
+    let mut table = table::Table::<eval::Eval>::new(tablesize);
 
+    // TODO add parallelization
+    // TODO add iterative deepening and null window search
     for (square, cell) in moves {
         let mut child = node.clone();
         child.play(square, cell);
@@ -47,6 +50,10 @@ pub fn bestmoves(node: &board::Board) -> (eval::Eval, Vec<(u8, u8)>) {
             bestmoves.push((square, cell));
         }
     }
+
+    let num = (0..tablesize).filter(|&i| table.table[i].1 != None).count();
+    println!("table sparsity {} ({:.2})", num, num as f64 / tablesize as f64);
+
     // TODO return the evaluation of all the moves
     (max, bestmoves)
 }
@@ -62,6 +69,7 @@ pub fn bestmoves_timeout(
     thread::spawn(move || {
         let _ = sender.send(bestmoves(&node_clone));
     });
+    // TODO proper thread kill
     receiver.recv_timeout(timeout)
 }
 
@@ -107,13 +115,13 @@ fn negamax(
     }
 
     // Check if we have already seen this node before.
+    // TODO also check symmetries if depth is low.
     if let Some(eval) = table.get(node.key()) {
         return eval;
     }
 
-    // Generate and sort the children
     let moves = moves(&node);
-    // TODO sort
+    // TODO sort the moves
 
     let mut value = eval::Eval::MIN;
 
@@ -126,10 +134,8 @@ fn negamax(
             negamax(&child, beta.rev(), alpha.rev(), rootcount, table).rev(),
         );
 
-        // Save the evaluation in the table.
         table.put(node.key(), value);
 
-        // Perform alpha beta pruning.
         alpha = cmp::max(alpha, value);
         if alpha >= beta {
             break;

@@ -50,15 +50,15 @@ fn evaluate(board: &board::Board, timeout: &time::Duration) -> Result<(eval::Eva
     }
 }
 
-/// Used to generate boards with results for the benchmarker.
+/// Used to generate boards with results for benchmarking.
 fn main() {
     let timeout = time::Duration::from_secs(5);
-    let depth = 15;
+    let depth = 4;
 
     loop {
         let (board, notation) = generate(depth);
         if let Ok((eval, time)) = evaluate(&board, &timeout) {
-            println!("{} {} {}", notation, eval, time);
+            println!("{}, {}, {}ms", notation, eval, time);
         }
     }
 }

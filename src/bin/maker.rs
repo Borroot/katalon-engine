@@ -158,9 +158,7 @@ mod cmd {
             bestmove
         );
 
-        let mut builder = String::new();
-        builder.push_str(&bestmove.0.to_string());
-        builder.push_str(&bestmove.1.to_string());
+        let builder = format!("{}{}", bestmove.0, bestmove.1);
         let args = vec![builder.as_str()];
 
         cmd::play(state, &args[..]);
@@ -169,9 +167,13 @@ mod cmd {
     }
 
     pub fn random(state: &mut State, _args: &[&str]) -> bool {
+        if state.board.isover() != None {
+            println!("Warn: the game already finished.");
+            return false;
+        }
+
         let (square, cell) = random::Random.play(&state.board);
         let builder = format!("{}{}", square, cell);
-        // let args = [format!("{}{}", square, cell)];
 
         cmd::play(state, &[&builder.as_str()]);
 

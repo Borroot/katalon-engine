@@ -4,13 +4,15 @@ use katalon::{board, game};
 use katalon::{human, random, solver};
 
 fn main() {
-    let player1 = Box::new(human::Human);
-    let player2 = Box::new(human::Human);
+    loop {
+        let player1 = Box::new(random::Random);
+        let player2 = Box::new(solver::Solver);
 
-    let mut game = game::Game::new(player1, player2, true);
-    let result = game.run();
-    match result {
-        board::Result::Draw => println!("It's a draw!"),
-        _ => println!("Player {} won!", result.player().unwrap()),
+        let mut game = game::Game::new(player1, player2, false);
+        let result = game.run();
+        match result {
+            board::Result::Draw => println!("It's a draw!"),
+            _ => println!("Player {} won!", result.player().unwrap()),
+        }
     }
 }
