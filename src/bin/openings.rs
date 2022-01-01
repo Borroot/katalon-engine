@@ -1,0 +1,1 @@
+// TODO evaluate and save all openings for quick lookup later
