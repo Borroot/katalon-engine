@@ -317,8 +317,8 @@ impl Board {
                     && (self.lastmove.unwrap().0 == self.lastmove.unwrap().1
                         || Self::double(self.lastmove.unwrap().0, self.lastmove.unwrap().1) != None)
                 {
-                    lastmove += (self.lastmove.unwrap().0 as u64 & 0b111) << 54;
                     // add the square
+                    lastmove += (self.lastmove.unwrap().0 as u64 & 0b111) << 54;
                 }
                 lastmove
             };
@@ -653,6 +653,28 @@ mod tests {
     fn isover_stones() {
         let board = Board::load("0020301101440313322423412").unwrap();
         assert_eq!(board.isover(), Some(Result::Player1));
+    }
+
+    /// Test whether the key is generated correctly.
+    #[test]
+    fn key() {
+        let board1 = Board::load("221400203101122").unwrap();
+        assert_eq!(
+            board1.key(),
+            0b000__0001__010_010__0__00001_00010_11111_11111_11111__00000_00010_01001_10100_10011
+        );
+
+        let board2 = Board::load("221400203101123").unwrap();
+        assert_eq!(
+            board2.key(),
+            0b000__0001__010_011__0__00001_00010_11111_11111_11111__00000_00000_00101_10100_10011
+        );
+
+        let board3 = Board::load("2214002031011232").unwrap();
+        assert_eq!(
+            board3.key(),
+            0b000__0000__000_010__1__00001_00110_11111_11111_11111__00001_00010_11010_01011_01100
+        );
     }
 
     /// Test display of nonempty board.

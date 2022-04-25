@@ -10,7 +10,7 @@ pub struct Game {
 
 impl Game {
     pub fn new(player1: Player, player2: Player, verbose: bool) -> Self {
-        Game {
+        Self {
             players: [player1, player2],
             board: board::Board::new(),
             verbose,

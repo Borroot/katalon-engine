@@ -24,7 +24,7 @@ pub fn bestmoves(node: &board::Board) -> (eval::Eval, Vec<(u8, u8)>) {
     let rootcount = node.movecount();
     let moves = moves(&node);
 
-    let tablesize = 19_999_999;  // TODO optimise table size
+    let tablesize = 19_999_999; // TODO optimise table size
     let mut table = table::Table::<eval::Eval>::new(tablesize);
 
     // TODO add parallelization
@@ -52,7 +52,11 @@ pub fn bestmoves(node: &board::Board) -> (eval::Eval, Vec<(u8, u8)>) {
     }
 
     let num = (0..tablesize).filter(|&i| table.table[i].1 != None).count();
-    println!("table sparsity {} ({:.2})", num, num as f64 / tablesize as f64);
+    println!(
+        "table sparsity {} ({:.2})",
+        num,
+        num as f64 / tablesize as f64
+    );
 
     // TODO return the evaluation of all the moves
     (max, bestmoves)

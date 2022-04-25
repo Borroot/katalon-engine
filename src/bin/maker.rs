@@ -241,6 +241,7 @@ mod cmd {
             "u undo: undo last move\n",
             "e eval [timeout]: evaluate state\n",
             "b best [timeout]: make best move\n",
+            "r random: make random move\n",
             "n new: new game\n",
             "l load: load game\n",
             "c count: print movecount\n",
