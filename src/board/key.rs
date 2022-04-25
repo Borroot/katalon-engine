@@ -3,19 +3,19 @@ impl super::Board {
     #[rustfmt::skip]
     const SYMMETRIES: [[usize; 25]; 7] = [
         // Flip diagonal 1-3:
-        [24,21,22,23,20,9,6,7,8,5,20,8,12,16,4,19,16,17,18,15,4,1,2,3,0],
+        [24,21,22,23,20,9,6,7,8,5,14,11,12,13,10,19,16,17,18,15,4,1,2,3,0],
         // Flip diagonal 0-4:
-        [0,3,2,1,4,15,18,17,16,19,4,16,12,8,20,5,8,7,6,9,20,23,22,21,24],
+        [0,3,2,1,4,15,18,17,16,19,10,13,12,11,14,5,8,7,6,9,20,23,22,21,24],
         // Flip horizontal:
-        [18,19,17,15,16,23,24,22,20,21,16,20,12,4,8,3,4,2,0,1,8,9,7,5,6],
+        [18,19,17,15,16,23,24,22,20,21,13,14,12,10,11,3,4,2,0,1,8,9,7,5,6],
         // Flip vertical:
-        [6,5,7,9,8,1,0,2,4,3,8,4,12,20,16,21,20,22,24,23,16,15,17,19,18],
+        [6,5,7,9,8,1,0,2,4,3,11,10,12,14,13,21,20,22,24,23,16,15,17,19,18],
         // Rotation 90:
-        [18,15,17,19,16,3,0,2,4,1,16,4,12,20,8,23,20,22,24,21,8,5,7,9,6],
+        [18,15,17,19,16,3,0,2,4,1,13,10,12,14,11,23,20,22,24,21,8,5,7,9,6],
         // Rotation 180:
         [24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0],
         // Rotation 270:
-        [6,9,7,5,8,21,24,22,20,23,8,20,12,4,16,1,4,2,0,3,16,19,17,15,18],
+        [6,9,7,5,8,21,24,22,20,23,11,14,12,10,13,1,4,2,0,3,16,19,17,15,18],
     ];
 
     /// Indiciate whether the square of the lastmove should be in the key.
@@ -34,10 +34,20 @@ impl super::Board {
     /// Map the state or mask to the given symmetry.
     fn symmetry_map(value: u32, symmetry: &[usize; 25]) -> u64 {
         let mut symmetry_value: u32 = 0;
-        for index in 0..25 {
-            let bit = (value & 1 << index) >> index;
-            symmetry_value += bit << symmetry[index];
-        }
+        // for square in 0..5 {
+        //     for cell in 0..5 {
+                // let index = square * 5 + cell;
+            for index in 0..25 {
+                let bit = (value & 1 << index) >> index;
+                symmetry_value += bit << symmetry[index];
+            }
+
+                // if let Some((s, c)) = Self::double(square, cell) {
+                //     let index = (s * 5 + c) as usize;
+                //     symmetry_value += bit << symmetry[index];
+                // }
+        //     }
+        // }
         symmetry_value as u64
     }
 
@@ -188,6 +198,23 @@ mod tests {
         assert_eq!(
             keys3[6],
             0b000__0000__000_010__1__11111_11111_11111_01100_10000__00110_11010_01011_01000_10000
+        );
+    }
+
+    /// Test first move symmetry key generation.
+    #[test]
+    fn keys_firstmove() {
+        let board1 = Board::load("21").unwrap();
+        let keys1 = board1.keys();
+
+        assert_eq!(
+            keys1[0],
+            0b0__0000__000_001__1__00000_00000_00010_01000_00000__00000_00000_00000_00000_00000
+        );
+
+        assert_eq!(
+            keys1[4],
+            0b0__0000__000_000__1__00000_00000_00001_00000_10000__00000_00000_00000_00000_00000
         );
     }
 }
