@@ -34,20 +34,10 @@ impl super::Board {
     /// Map the state or mask to the given symmetry.
     fn symmetry_map(value: u32, symmetry: &[usize; 25]) -> u64 {
         let mut symmetry_value: u32 = 0;
-        // for square in 0..5 {
-        //     for cell in 0..5 {
-                // let index = square * 5 + cell;
-            for index in 0..25 {
-                let bit = (value & 1 << index) >> index;
-                symmetry_value += bit << symmetry[index];
-            }
-
-                // if let Some((s, c)) = Self::double(square, cell) {
-                //     let index = (s * 5 + c) as usize;
-                //     symmetry_value += bit << symmetry[index];
-                // }
-        //     }
-        // }
+        for index in 0..25 {
+            let bit = (value & 1 << index) >> index;
+            symmetry_value += bit << symmetry[index];
+        }
         symmetry_value as u64
     }
 
