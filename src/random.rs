@@ -1,5 +1,5 @@
 use crate::{board, player};
-use rand::prelude::*;
+use rand::Rng;
 
 /// A player wich always makes a random move.
 pub struct Random;

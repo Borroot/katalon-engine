@@ -1,5 +1,5 @@
 use crate::board;
-use std::io::{self, Write};
+use std::io::Write;
 
 /// Return the regex used to recognize a move of the form [0-4]<0-4>.
 pub fn move_regex() -> regex::Regex {
@@ -9,10 +9,10 @@ pub fn move_regex() -> regex::Regex {
 /// Request and return user input.
 pub fn request(prompt: String) -> String {
     print!("{}", prompt);
-    io::stdout().flush().unwrap();
+    std::io::stdout().flush().unwrap();
 
     let mut line = String::new();
-    io::stdin().read_line(&mut line).unwrap();
+    std::io::stdin().read_line(&mut line).unwrap();
 
     line.trim().to_string()
 }

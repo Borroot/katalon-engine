@@ -1,5 +1,4 @@
 use katalon::{board, game};
-
 #[allow(unused_imports)]
 use katalon::{human, random, solver};
 

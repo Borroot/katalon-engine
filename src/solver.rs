@@ -1,9 +1,8 @@
 use crate::{board, eval, player, table};
-use rand::prelude::*;
-use std::cmp;
-use std::sync::mpsc;
-use std::thread;
+use rand::Rng;
 use std::time::Duration;
+
+// TODO refactor to a directory including: solver.rs, table.rs, eval.rs
 
 /// A player directed by the minmax algorithm.
 pub struct Solver;
@@ -66,11 +65,11 @@ pub fn bestmoves(node: &board::Board) -> (eval::Eval, Vec<(u8, u8)>) {
 pub fn bestmoves_timeout(
     node: &board::Board,
     timeout: Duration,
-) -> Result<(eval::Eval, Vec<(u8, u8)>), mpsc::RecvTimeoutError> {
-    let (sender, receiver) = mpsc::channel();
+) -> Result<(eval::Eval, Vec<(u8, u8)>), std::sync::mpsc::RecvTimeoutError> {
+    let (sender, receiver) = std::sync::mpsc::channel();
     let node_clone = node.clone();
 
-    thread::spawn(move || {
+    std::thread::spawn(move || {
         let _ = sender.send(bestmoves(&node_clone));
     });
     // TODO proper thread kill
@@ -133,14 +132,14 @@ fn negamax(
         let mut child = node.clone();
         child.play(square, cell);
 
-        value = cmp::max(
+        value = std::cmp::max(
             value,
             negamax(&child, beta.rev(), alpha.rev(), rootcount, table).rev(),
         );
 
         table.put(node.key(), value);
 
-        alpha = cmp::max(alpha, value);
+        alpha = std::cmp::max(alpha, value);
         if alpha >= beta {
             break;
         }

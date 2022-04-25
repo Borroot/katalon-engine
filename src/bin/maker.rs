@@ -1,16 +1,14 @@
 use cmd::Cmd;
-use katalon::input;
-use katalon::{board, player::Player, random, solver};
-use rand::prelude::*;
-use std::{fmt, time};
+use katalon::{board, input, player::Player, random, solver};
+use rand::Rng;
 
 pub struct State {
     board: board::Board,
     notation: String,
 }
 
-impl fmt::Display for State {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Display for State {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.board.isfirst() {
             write!(f, "{}", self.board)
         } else {
@@ -88,13 +86,16 @@ mod cmd {
         }
 
         // TODO cleanup eval and best function, e.g. so no duplicate code
-        let now = time::Instant::now();
+        let now = std::time::Instant::now();
 
         let result = {
             if timeout == None {
                 Ok(solver::bestmoves(&state.board))
             } else {
-                solver::bestmoves_timeout(&state.board, time::Duration::from_secs(timeout.unwrap()))
+                solver::bestmoves_timeout(
+                    &state.board,
+                    std::time::Duration::from_secs(timeout.unwrap()),
+                )
             }
         };
 
@@ -131,13 +132,16 @@ mod cmd {
             }
         }
 
-        let now = time::Instant::now();
+        let now = std::time::Instant::now();
 
         let result = {
             if timeout == None {
                 Ok(solver::bestmoves(&state.board))
             } else {
-                solver::bestmoves_timeout(&state.board, time::Duration::from_secs(timeout.unwrap()))
+                solver::bestmoves_timeout(
+                    &state.board,
+                    std::time::Duration::from_secs(timeout.unwrap()),
+                )
             }
         };
 

@@ -1,6 +1,4 @@
-use katalon::player::Player;
-use katalon::{board, eval, random, solver};
-use std::time;
+use katalon::{board, eval, player::Player, random, solver};
 
 fn generate(depth: usize) -> (board::Board, String) {
     let player = random::Random;
@@ -39,8 +37,8 @@ fn generate(depth: usize) -> (board::Board, String) {
     }
 }
 
-fn evaluate(board: &board::Board, timeout: &time::Duration) -> Result<(eval::Eval, u128), ()> {
-    let now = time::Instant::now();
+fn evaluate(board: &board::Board, timeout: &std::time::Duration) -> Result<(eval::Eval, u128), ()> {
+    let now = std::time::Instant::now();
 
     match solver::bestmoves_timeout(&board, *timeout) {
         Ok((eval, _)) => {
@@ -52,7 +50,7 @@ fn evaluate(board: &board::Board, timeout: &time::Duration) -> Result<(eval::Eva
 
 /// Used to generate boards with results for benchmarking.
 fn main() {
-    let timeout = time::Duration::from_secs(5);
+    let timeout = std::time::Duration::from_secs(5);
     let depth = 4;
 
     loop {

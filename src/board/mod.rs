@@ -1,5 +1,6 @@
 use crate::player;
-use std::{fmt, result};
+
+mod key;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Result {
@@ -47,8 +48,8 @@ pub struct Board {
     /// Both players start with 12 stones.
     stones: [u8; 2],
 
-    /// The last move that was made. Can be used to get the square constraint.
-    /// This piece cannot be taken, unless it is the only option.
+    /// The last move that was made (square, cell). Used to get the square
+    /// constraint. This piece cannot be taken, unless it is the only option.
     lastmove: Option<(u8, u8)>,
 
     /// Keeps how many turns in a row pieces have been taken.
@@ -81,7 +82,7 @@ impl Board {
     }
 
     /// Create a board with the specified configuration.
-    pub fn load(moves: &str) -> result::Result<Self, String> {
+    pub fn load(moves: &str) -> std::result::Result<Self, String> {
         let mut board = Self::new();
 
         if !moves.chars().all(|c| '0' <= c && c <= '4') {
@@ -298,46 +299,10 @@ impl Board {
             Some((_, square)) => Some(square),
         }
     }
-
-    /// Return a u64 uniquely identifying this state of the board.
-    pub fn key(&self) -> u64 {
-        // 4 bytes takestreak + 6 bytes lastmove + 1 byte onturn + 25 bytes mask + 25 bytes state
-        let mut key: u64 = 0;
-
-        // Take the first four bytes of the takestreak.
-        key += (self.takestreak as u64 & 0x0F) << 57;
-
-        // The 6 bytes of lastmove will only contain the square if that square
-        // is full and (square == cell or double(square, cell) != None).
-        if self.lastmove != None {
-            key += {
-                let mut lastmove = (self.lastmove.unwrap().1 as u64 & 0b111) << 51; // just the cell
-                let mask_square = 0b11111 << self.lastmove.unwrap().0 * 5;
-                if self.mask & mask_square == mask_square
-                    && (self.lastmove.unwrap().0 == self.lastmove.unwrap().1
-                        || Self::double(self.lastmove.unwrap().0, self.lastmove.unwrap().1) != None)
-                {
-                    // add the square
-                    lastmove += (self.lastmove.unwrap().0 as u64 & 0b111) << 54;
-                }
-                lastmove
-            };
-        }
-
-        // Add the player onturn: 0 if onturn == player1 else 1.
-        key += (self.onturn as u64) << 50;
-
-        // Add the mask and the state.
-        key += (self.mask as u64) << 25;
-        key += self.state as u64;
-
-        key
-        // TODO also create a version with symmetries
-    }
 }
 
-impl fmt::Display for Board {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Display for Board {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Get the symbol corresponding to the given cell.
         let symbol = |square: u8, cell: u8| -> String {
             let index = square * 5 + cell;
@@ -653,28 +618,6 @@ mod tests {
     fn isover_stones() {
         let board = Board::load("0020301101440313322423412").unwrap();
         assert_eq!(board.isover(), Some(Result::Player1));
-    }
-
-    /// Test whether the key is generated correctly.
-    #[test]
-    fn key() {
-        let board1 = Board::load("221400203101122").unwrap();
-        assert_eq!(
-            board1.key(),
-            0b000__0001__010_010__0__00001_00010_11111_11111_11111__00000_00010_01001_10100_10011
-        );
-
-        let board2 = Board::load("221400203101123").unwrap();
-        assert_eq!(
-            board2.key(),
-            0b000__0001__010_011__0__00001_00010_11111_11111_11111__00000_00000_00101_10100_10011
-        );
-
-        let board3 = Board::load("2214002031011232").unwrap();
-        assert_eq!(
-            board3.key(),
-            0b000__0000__000_010__1__00001_00110_11111_11111_11111__00001_00010_11010_01011_01100
-        );
     }
 
     /// Test display of nonempty board.

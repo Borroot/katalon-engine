@@ -1,5 +1,4 @@
 use crate::board;
-use std::fmt;
 use Players::*;
 
 pub trait Player {
@@ -22,8 +21,8 @@ impl Players {
     }
 }
 
-impl fmt::Display for Players {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Display for Players {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let symbol = match self {
             Player1 => 'X',
             Player2 => 'O',

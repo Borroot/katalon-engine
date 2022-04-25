@@ -1,5 +1,3 @@
-use std::{cmp, fmt};
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Result {
     Loss,
@@ -7,8 +5,8 @@ pub enum Result {
     Win,
 }
 
-impl fmt::Display for Result {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Display for Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
@@ -68,9 +66,9 @@ impl PartialEq for Eval {
 impl Eq for Eval {}
 
 impl Ord for Eval {
-    fn cmp(&self, other: &Self) -> cmp::Ordering {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match self.result.cmp(&other.result) {
-            cmp::Ordering::Equal => match self.result {
+            std::cmp::Ordering::Equal => match self.result {
                 Result::Win => self.distance.cmp(&other.distance).reverse(),
                 _ => self.distance.cmp(&other.distance),
             },
@@ -80,13 +78,13 @@ impl Ord for Eval {
 }
 
 impl PartialOrd for Eval {
-    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl fmt::Display for Eval {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Display for Eval {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} in {}", self.result, self.distance)
     }
 }
