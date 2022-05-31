@@ -75,32 +75,21 @@ mod cmd {
             return false;
         }
 
-        let mut timeout = Some(10);
+        let mut timeout = 10;
 
         if args.len() > 1 {
             if let Ok(time) = args[1].parse::<u64>() {
-                timeout = Some(time);
+                timeout = time;
             } else {
                 println!("Warn: invalid timeout ignored");
             }
         }
 
-        // TODO cleanup eval and best function, e.g. so no duplicate code
         let now = std::time::Instant::now();
-
-        let result = {
-            if timeout == None {
-                Ok(solver::bestmoves(&state.board))
-            } else {
-                solver::bestmoves_timeout(
-                    &state.board,
-                    std::time::Duration::from_secs(timeout.unwrap()),
-                )
-            }
-        };
+        let result = solver::bestmoves(&state.board, std::time::Duration::from_secs(timeout));
 
         if result.is_err() {
-            println!("timeout after {}s", timeout.unwrap());
+            println!("timeout after {}s", timeout);
             return false;
         }
 
@@ -122,31 +111,21 @@ mod cmd {
             return false;
         }
 
-        let mut timeout = Some(10);
+        let mut timeout = 10;
 
         if args.len() > 1 {
             if let Ok(time) = args[1].parse::<u64>() {
-                timeout = Some(time);
+                timeout = time;
             } else {
                 println!("Warn: invalid timeout ignored");
             }
         }
 
         let now = std::time::Instant::now();
-
-        let result = {
-            if timeout == None {
-                Ok(solver::bestmoves(&state.board))
-            } else {
-                solver::bestmoves_timeout(
-                    &state.board,
-                    std::time::Duration::from_secs(timeout.unwrap()),
-                )
-            }
-        };
+        let result = solver::bestmoves(&state.board, std::time::Duration::from_secs(timeout));
 
         if result.is_err() {
-            println!("timeout after {}s", timeout.unwrap());
+            println!("timeout after {}s", timeout);
             return false;
         }
 

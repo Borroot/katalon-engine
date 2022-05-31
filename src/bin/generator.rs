@@ -1,5 +1,6 @@
 use katalon::{board, eval, player::Player, random, solver};
 
+/// Generate a board and its notation with movecount equal to given depth.
 fn generate(depth: usize) -> (board::Board, String) {
     let player = random::Random;
     let mut board;
@@ -37,10 +38,11 @@ fn generate(depth: usize) -> (board::Board, String) {
     }
 }
 
+/// Try to evaluate the board within the given timelimit.
 fn evaluate(board: &board::Board, timeout: &std::time::Duration) -> Result<(eval::Eval, u128), ()> {
     let now = std::time::Instant::now();
 
-    match solver::bestmoves_timeout(&board, *timeout) {
+    match solver::bestmoves(&board, *timeout) {
         Ok((eval, _)) => {
             return Ok((eval, now.elapsed().as_millis()));
         }
@@ -50,13 +52,15 @@ fn evaluate(board: &board::Board, timeout: &std::time::Duration) -> Result<(eval
 
 /// Used to generate boards with results for benchmarking.
 fn main() {
-    let timeout = std::time::Duration::from_secs(5);
-    let depth = 4;
+    let timeout = std::time::Duration::from_secs(10);
+    let depth = 10;
 
     loop {
         let (board, notation) = generate(depth);
         if let Ok((eval, time)) = evaluate(&board, &timeout) {
             println!("{}, {}, {}ms", notation, eval, time);
+        } else {
+            println!("{}, timeout", notation);
         }
     }
 }

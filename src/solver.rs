@@ -1,6 +1,5 @@
 use crate::{board, eval, player, table};
 use rand::Rng;
-use std::time::Duration;
 
 // TODO refactor to a directory including: solver.rs, table.rs, eval.rs
 
@@ -9,14 +8,42 @@ pub struct Solver;
 
 impl player::Player for Solver {
     fn play(&self, node: &board::Board) -> (u8, u8) {
-        let (_, bestmoves) = bestmoves(node);
+        let (_, bestmoves) = bestmoves(node, std::time::Duration::MAX).unwrap();
         let mut rng = rand::thread_rng();
         bestmoves[rng.gen_range(0..bestmoves.len()) as usize]
     }
 }
 
+/// Return all of the best moves if finished within the specified time.
+pub fn bestmoves(
+    node: &board::Board,
+    timeout: std::time::Duration,
+) -> Result<(eval::Eval, Vec<(u8, u8)>), ()> {
+    let (send_timeout, recv_timeout) = std::sync::mpsc::channel();
+    let (send_result, recv_result) = std::sync::mpsc::channel();
+
+    let node_clone = node.clone();
+
+    std::thread::spawn(move || {
+        send_result
+            .send(evaluate_start(&node_clone, recv_timeout))
+            .expect("Could not send result.");
+    });
+
+    match recv_result.recv_timeout(timeout) {
+        Ok(result) => result, // this should always be Ok
+        Err(_) => {
+            send_timeout.send(()).expect("Could not send timeout.");
+            recv_result.recv().expect("Could not wait until thread terminated.")
+        }
+    }
+}
+
 /// Return all of the best moves and the pure evaluation.
-pub fn bestmoves(node: &board::Board) -> (eval::Eval, Vec<(u8, u8)>) {
+fn evaluate_start(
+    node: &board::Board,
+    recv_timeout: std::sync::mpsc::Receiver<()>,
+) -> Result<(eval::Eval, Vec<(u8, u8)>), ()> {
     let mut bestmoves: Vec<(u8, u8)> = Vec::new();
     let mut max = eval::Eval::MIN;
 
@@ -38,7 +65,8 @@ pub fn bestmoves(node: &board::Board) -> (eval::Eval, Vec<(u8, u8)>) {
             eval::Eval::MAX,
             rootcount,
             &mut table,
-        )
+            &recv_timeout,
+        )?
         .rev();
 
         if value > max {
@@ -50,42 +78,23 @@ pub fn bestmoves(node: &board::Board) -> (eval::Eval, Vec<(u8, u8)>) {
         }
     }
 
-    let num = (0..tablesize).filter(|&i| table.table[i].1 != None).count();
-    println!(
-        "table sparsity {} ({:.2})",
-        num,
-        num as f64 / tablesize as f64
-    );
+    // TODO remove me
+    // let num = (0..tablesize).filter(|&i| table.table[i].1 != None).count();
+    // println!(
+    //     "table sparsity {} ({:.2})",
+    //     num,
+    //     num as f64 / tablesize as f64
+    // );
 
     // TODO return the evaluation of all the moves
-    (max, bestmoves)
-}
-
-/// Return all of the best moves if finished within the specified time.
-pub fn bestmoves_timeout(
-    node: &board::Board,
-    timeout: Duration,
-) -> Result<(eval::Eval, Vec<(u8, u8)>), std::sync::mpsc::RecvTimeoutError> {
-    let (sender, receiver) = std::sync::mpsc::channel();
-    let node_clone = node.clone();
-
-    std::thread::spawn(move || {
-        let _ = sender.send(bestmoves(&node_clone));
-    });
-    // TODO proper thread kill
-    receiver.recv_timeout(timeout)
+    Ok((max, bestmoves))
 }
 
 /// Evaluate the board from the perspective of the player onturn.
-fn evaluate(result: board::Result, onturn: player::Players, movecount: u8) -> eval::Eval {
+fn evaluate_end(result: board::Result, onturn: player::Players, movecount: u8) -> eval::Eval {
     let result = match result.player() {
-        Some(player) => {
-            if player == onturn {
-                eval::Result::Win
-            } else {
-                eval::Result::Loss
-            }
-        }
+        Some(player) if player == onturn => eval::Result::Win,
+        Some(_) => eval::Result::Loss,
         None => eval::Result::Draw,
     };
     eval::Eval::new(result, movecount)
@@ -110,17 +119,27 @@ fn negamax(
     beta: eval::Eval,
     rootcount: u8,
     table: &mut table::Table<eval::Eval>,
-) -> eval::Eval {
+    recv_timeout: &std::sync::mpsc::Receiver<()>,
+) -> Result<eval::Eval, ()> {
+    // Check if the timeout is reached and we should interrupt the search.
+    let recv = recv_timeout.try_recv();
+    if recv.is_ok() || recv == Err(std::sync::mpsc::TryRecvError::Disconnected) {
+        return Err(());
+    }
+
     // Compute the value of the leaf node
-    let result = node.isover();
-    if result != None {
-        return evaluate(result.unwrap(), node.onturn(), node.movecount() - rootcount);
+    if let Some(result) = node.isover() {
+        return Ok(evaluate_end(
+            result,
+            node.onturn(),
+            node.movecount() - rootcount,
+        ));
     }
 
     // Check if we have already seen this node before.
     // TODO also check symmetries if depth is low.
     if let Some(eval) = table.get(node.key()) {
-        return eval;
+        return Ok(eval);
     }
 
     let moves = moves(&node);
@@ -134,7 +153,15 @@ fn negamax(
 
         value = std::cmp::max(
             value,
-            negamax(&child, beta.rev(), alpha.rev(), rootcount, table).rev(),
+            negamax(
+                &child,
+                beta.rev(),
+                alpha.rev(),
+                rootcount,
+                table,
+                recv_timeout,
+            )?
+            .rev(),
         );
 
         table.put(node.key(), value);
@@ -144,7 +171,7 @@ fn negamax(
             break;
         }
     }
-    return value;
+    return Ok(value);
 }
 
 #[cfg(test)]
