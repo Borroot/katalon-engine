@@ -12,4 +12,3 @@ pub mod random;
 
 pub mod eval;
 pub mod solver;
-pub mod table;

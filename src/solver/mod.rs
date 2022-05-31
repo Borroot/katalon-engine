@@ -1,5 +1,7 @@
-use crate::{board, eval, player, table};
+use crate::{board, eval, player};
 use rand::Rng;
+
+mod table;
 
 // TODO refactor to a directory including: solver.rs, table.rs, eval.rs
 
