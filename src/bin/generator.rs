@@ -40,13 +40,11 @@ fn generate(depth: usize) -> (board::Board, String) {
 
 /// Try to evaluate the board within the given timelimit.
 fn evaluate(board: &board::Board, timeout: &std::time::Duration) -> Result<(eval::Eval, u128), ()> {
-    let now = std::time::Instant::now();
-
-    match solver::bestmoves(&board, *timeout) {
-        Ok((eval, _)) => {
-            return Ok((eval, now.elapsed().as_millis()));
+    match solver::bestmoves_with_stats(&board, *timeout) {
+        (Ok((eval, _)), stats) => {
+            return Ok((eval, stats.time.as_millis()));
         }
-        Err(_) => return Err(()),
+        (Err(_), _) => return Err(()),
     }
 }
 

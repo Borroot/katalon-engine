@@ -76,7 +76,6 @@ mod cmd {
         }
 
         let mut timeout = 10;
-
         if args.len() > 1 {
             if let Ok(time) = args[1].parse::<u64>() {
                 timeout = time;
@@ -85,22 +84,21 @@ mod cmd {
             }
         }
 
-        let now = std::time::Instant::now();
-        let result = solver::bestmoves(&state.board, std::time::Duration::from_secs(timeout));
+        let (result, stats) =
+            solver::bestmoves_with_stats(&state.board, std::time::Duration::from_secs(timeout));
 
         if result.is_err() {
             println!("timeout after {}s", timeout);
-            return false;
+        } else {
+            let (value, bestmoves) = result.unwrap();
+            println!(
+                "evaluation: {} ({}ms)\nmoves: {:?}",
+                value,
+                stats.time.as_millis(),
+                bestmoves
+            );
         }
-
-        let (value, bestmoves) = result.unwrap();
-
-        println!(
-            "evaluation: {} ({}ms)\nmoves: {:?}",
-            value,
-            now.elapsed().as_millis(),
-            bestmoves
-        );
+        print!("\n{}", stats);
 
         false
     }
@@ -121,8 +119,8 @@ mod cmd {
             }
         }
 
-        let now = std::time::Instant::now();
-        let result = solver::bestmoves(&state.board, std::time::Duration::from_secs(timeout));
+        let (result, stats) =
+            solver::bestmoves_with_stats(&state.board, std::time::Duration::from_secs(timeout));
 
         if result.is_err() {
             println!("timeout after {}s", timeout);
@@ -136,7 +134,7 @@ mod cmd {
         println!(
             "evaluation: {} ({}ms)\n{:?} -> {:?}",
             value,
-            now.elapsed().as_millis(),
+            stats.time.as_millis(),
             bestmoves,
             bestmove
         );

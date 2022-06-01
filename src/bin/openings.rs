@@ -1,8 +1,6 @@
 use katalon::board;
 use std::collections::HashSet;
 
-// TODO evaluate and save all openings for quick lookup later
-
 fn main() {
     for depth in 0..=15 {
         stats(depth);
@@ -83,11 +81,10 @@ fn stats(depth: usize) {
     let mut count_all = 0;
     backtrack_count(board::Board::new(), depth, &mut count_all);
 
-    // println!("max movecount = {}", depth);
-    // println!("count unique  = {}", count_unique);
-    // println!("count all     = {}", count_all);
-    // println!("unique / all  = {:.4}", count_unique as f64 / count_all as f64);
-    print!(" {}", count_unique);
+    println!("max movecount = {}", depth);
+    println!("count unique  = {}", count_unique);
+    println!("count all     = {}", count_all);
+    println!("unique / all  = {:.4}", count_unique as f64 / count_all as f64);
 }
 
 #[cfg(test)]
