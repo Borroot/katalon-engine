@@ -50,15 +50,24 @@ fn evaluate(board: &board::Board, timeout: &std::time::Duration) -> Result<(eval
 
 /// Used to generate boards with results for benchmarking.
 fn main() {
-    let timeout = std::time::Duration::from_secs(10);
-    let depth = 10;
+    let timeout = std::time::Duration::from_secs(60);
+    let depth = 5;
 
+    let mut count = 0;
     loop {
+        if count >= 40 {
+            return;
+        }
+
         let (board, notation) = generate(depth);
-        if let Ok((eval, time)) = evaluate(&board, &timeout) {
-            println!("{}, {}, {}ms", notation, eval, time);
+        if let Ok((eval, _time)) = evaluate(&board, &timeout) {
+            //println!("{}, {}, {}ms", notation, eval, _time);
+            if eval.distance > 5 {
+                println!("{} {}", notation, eval);
+                count += 1;
+            }
         } else {
-            println!("{}, timeout", notation);
+            //println!("{}, timeout", notation);
         }
     }
 }

@@ -84,7 +84,10 @@ fn stats(depth: usize) {
     println!("max movecount = {}", depth);
     println!("count unique  = {}", count_unique);
     println!("count all     = {}", count_all);
-    println!("unique / all  = {:.4}", count_unique as f64 / count_all as f64);
+    println!(
+        "unique / all  = {:.4}",
+        count_unique as f64 / count_all as f64
+    );
 }
 
 #[cfg(test)]
