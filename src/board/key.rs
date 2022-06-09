@@ -20,15 +20,14 @@ impl super::Board {
 
     /// Indiciate whether the square of the lastmove should be in the key.
     fn lastmove_square(&self) -> bool {
+        debug_assert!(self.lastmove != None);
+
         // The 6 bytes of lastmove will only contain the square if that square
         // is full and (square == cell or double(square, cell) != None).
-        if self.lastmove != None {
-            let mask_square = 0b11111 << self.lastmove.unwrap().0 * 5;
-            let (square, cell) = self.lastmove.unwrap();
-            return self.mask & mask_square == mask_square
-                && (square == cell || Self::double(square, cell) != None);
-        }
-        false
+        let mask_square = 0b11111 << self.lastmove.unwrap().0 * 5;
+        let (square, cell) = self.lastmove.unwrap();
+        return self.mask & mask_square == mask_square
+            && (square == cell || Self::double(square, cell) != None);
     }
 
     /// Map the state or mask to the given symmetry.
@@ -44,6 +43,7 @@ impl super::Board {
     /// Return a u64 uniquely identifying this state of the board.
     pub fn key(&self) -> u64 {
         // 4 bytes takestreak + 6 bytes lastmove + 1 byte onturn + 25 bytes mask + 25 bytes state
+        // TODO onturn info is unneccessary
         let mut key: u64 = 0;
 
         // Take the first four bytes of the takestreak.

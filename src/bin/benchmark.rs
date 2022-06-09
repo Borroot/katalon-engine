@@ -1,7 +1,7 @@
 use katalon::{board, eval, solver};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use tabled::{Tabled, Table};
+use tabled::{Table, Tabled};
 
 /// The difficulty for the benchmark data.
 /// Depth 20
@@ -35,6 +35,7 @@ struct Entry {
 #[derive(Debug, Tabled)]
 struct Bench {
     pub test_set: String,
+    pub total: usize,
     pub timeouts: usize,
     pub mean_time: u128,
     pub max_time: u128,
@@ -74,6 +75,9 @@ fn run_set(name: String, entries: Vec<Entry>) -> Result<Bench, ()> {
     let mut time = Vec::<std::time::Duration>::new();
     let mut visited = Vec::<usize>::new();
 
+    let now = std::time::Instant::now();
+
+    println!("benchmarking {}", name);
     for (index, entry) in entries.iter().enumerate() {
         let (result, stats) =
             solver::bestmoves_with_stats(&entry.board, std::time::Duration::from_secs(10));
@@ -89,6 +93,7 @@ fn run_set(name: String, entries: Vec<Entry>) -> Result<Bench, ()> {
             visited.push(stats.visited);
         }
     }
+    println!("finished in {} seconds", now.elapsed().as_secs());
 
     time.sort();
     visited.sort();
@@ -103,6 +108,7 @@ fn run_set(name: String, entries: Vec<Entry>) -> Result<Bench, ()> {
     if time.len() > 0 {
         Ok(Bench {
             test_set: name,
+            total: entries.len(),
             timeouts: entries.len() - time.len(),
             mean_time: time[time.len() / 2].as_millis(),
             max_time: time[time.len() - 1].as_millis(),
@@ -117,7 +123,7 @@ fn run_set(name: String, entries: Vec<Entry>) -> Result<Bench, ()> {
 
 fn main() {
     let variants = ["low", "high"];
-    let depths = [20, 10];
+    let depths = [20, 10, 5];
 
     let mut benches = Vec::<Bench>::new();
     for depth in depths {
@@ -125,7 +131,6 @@ fn main() {
             let filename = format!("res/benchmark/depth{}_{}.txt", depth, variant);
             let entries = load_file(filename);
 
-            println!("starting benchmark of depth {} {}", depth, variant);
             if let Ok(bench) = run_set(format!("depth {} {}", depth, variant), entries) {
                 benches.push(bench);
             }

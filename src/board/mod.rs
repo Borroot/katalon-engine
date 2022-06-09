@@ -167,9 +167,7 @@ impl Board {
 
         // If the cell is not equal to the lastmove, return true.
         // Also check the double cell connected to the lastmove.
-        if self.lastmove != None
-            && (self.lastmove.unwrap().0 != square || self.lastmove.unwrap().1 != cell)
-        {
+        if self.lastmove.unwrap().0 != square || self.lastmove.unwrap().1 != cell {
             match Self::double(self.lastmove.unwrap().0, self.lastmove.unwrap().1) {
                 None => return true,
                 Some((s, c)) if s != square || c != cell => return true,

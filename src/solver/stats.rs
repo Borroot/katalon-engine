@@ -52,15 +52,15 @@ impl Stats {
         self.visited += 1;
     }
 
-    /// Add information of the transposition table.
-    pub fn add_table(&mut self, table: &table::Table<eval::Eval>) {
-        self.table = TableStats {
-            size: table.size(),
-            count: table.count(),
-            sparcity: table.count() as f64 / table.size() as f64,
-            hits: table.hits(),
-        };
-    }
+    // Add information of the transposition table.
+    //pub fn add_table(&mut self, table: &table::Table) {
+    //self.table = TableStats {
+    //size: table.size(),
+    //count: table.count(),
+    //sparcity: table.count() as f64 / table.size() as f64,
+    //hits: table.hits(),
+    //};
+    //}
 }
 
 impl std::fmt::Display for Stats {

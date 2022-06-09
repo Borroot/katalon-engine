@@ -16,6 +16,7 @@ impl player::Player for Solver {
     }
 }
 
+// TODO refactor to put every in a Solver object
 // TODO add a function which evaluates all the moves
 
 /// Return all of the best moves if finished within the specified time with stats.

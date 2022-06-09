@@ -1,6 +1,7 @@
 use super::{stats, table};
 use crate::{board, eval, player};
 
+// TODO refactor to put in a solver object
 // TODO add a function which evaluates all the moves
 
 /// Return all of the best moves and the evaluation.
@@ -17,8 +18,8 @@ pub fn bestmoves(
     let moves = legal_moves(&node);
     // TODO sort the moves
 
-    let tablesize = 19_999_999; // TODO optimise table size
-    let mut table = table::Table::<eval::Eval>::new(tablesize);
+    //let tablesize = 20_000_000; // TODO optimise table size
+    //let mut table = table::Table::new(tablesize);
 
     // TODO add parallelization
     // TODO add iterative deepening and null window search
@@ -32,12 +33,11 @@ pub fn bestmoves(
             eval::Eval::MIN,
             eval::Eval::MAX,
             rootcount,
-            &mut table,
             &recv_timeout,
             &mut stats,
         );
         if value.is_err() {
-            stats.add_table(&table);
+            //stats.add_table(&table);
             stats.end();
             return (Err(()), stats);
         }
@@ -52,7 +52,7 @@ pub fn bestmoves(
         }
     }
 
-    stats.add_table(&table);
+    //stats.add_table(&table);
     stats.end();
     return (Ok((max, bestmoves)), stats);
 }
@@ -85,7 +85,6 @@ fn negamax(
     mut alpha: eval::Eval,
     beta: eval::Eval,
     rootcount: u8,
-    table: &mut table::Table<eval::Eval>,
     recv_timeout: &std::sync::mpsc::Receiver<()>,
     stats: &mut stats::Stats,
 ) -> Result<eval::Eval, ()> {
@@ -108,39 +107,42 @@ fn negamax(
 
     // Check if we have already seen this node before.
     // TODO also check symmetries if depth is low.
-    if let Some(eval) = table.get(node.key()) {
-        return Ok(eval);
-    }
+    // TODO keep track on the number of hits
+    //if let Some(eval) = table.get(node.key()) {
+    //return Ok(eval);
+    //}
 
     let moves = legal_moves(&node);
-    // TODO sort the moves
+    // TODO sort the moves based on iterative deepening results
+    // TODO add a table which saves the order of children nodes
+    // TODO killer heuristic
 
-    let mut value = eval::Eval::MIN;
+    let mut best = eval::Eval::MIN;
 
     for (square, cell) in moves {
         let mut child = node.clone();
         child.play(square, cell);
 
-        value = std::cmp::max(
-            value,
+        best = std::cmp::max(
+            best,
             negamax(
                 &child,
                 beta.rev(),
                 alpha.rev(),
                 rootcount,
-                table,
                 recv_timeout,
                 stats,
             )?
             .rev(),
         );
 
-        table.put(node.key(), value);
-
-        alpha = std::cmp::max(alpha, value);
-        if alpha >= beta {
+        if best >= beta {
             break;
         }
+        alpha = std::cmp::max(alpha, best);
     }
-    return Ok(value);
+
+    //table.put(node.key(), best); // FIXME
+
+    return Ok(best);
 }

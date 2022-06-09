@@ -1,16 +1,43 @@
+use crate::eval;
+
 /// A fast lookup table without collision detection.
-pub struct Table<T: Copy> {
-    table: Vec<(u64, Option<T>)>,
-    hits: usize, // used for statistics
+pub struct Table {
+    table: Vec<Option<Entry>>,
 }
 
-impl<T: Copy> Table<T> {
-    /// Create a new table of the given size.
-    pub fn new(size: usize) -> Table<T> {
-        Table {
-            table: vec![(0, None); size],
-            hits: 0,
+/// A flag which indicates whether the entry is an upperbound, lowerbound or exact value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Flag {
+    UPPERBOUND,
+    LOWERBOUND,
+    EXACT,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Entry {
+    key: u64,
+    value: eval::Eval,
+    flag: Flag,
+    bestmove: u8,
+    // TODO add movecount for performing the replacement strategy
+    // https://www.chessprogramming.org/Transposition_Table
+}
+
+impl Table {
+    /// Create a new table of at least the given size.
+    /// The size of a table is always the closest bigger than the given size prime.
+    pub fn new(size: usize) -> Self {
+        let size = primal::Primes::all().find(|p| p >= &size).unwrap();
+        Self {
+            table: vec![None; size],
         }
+    }
+
+    /// Create a table of the given amount of gigabytes.
+    /// Be careful not to make it too big.
+    pub fn from_gb(size: f32) -> Self {
+        let size = (size * 1.0e9) as usize / std::mem::size_of::<Entry>();
+        Self::new(size)
     }
 
     fn index(&self, key: u64) -> usize {
@@ -18,25 +45,25 @@ impl<T: Copy> Table<T> {
     }
 
     /// Put a new value with a given key inside the table.
-    pub fn put(&mut self, key: u64, value: T) {
-        let index = self.index(key);
-        self.table[index] = (key, Some(value));
+    pub fn put(&mut self, key: u64, value: eval::Eval, flag: Flag, bestmove: u8) {
+        let entry = Entry {
+            key,
+            value,
+            flag,
+            bestmove,
+        };
+        let index = self.index(entry.key);
+        self.table[index] = Some(entry);
     }
 
     /// Retrieve the value identified by the given key, if present.
-    pub fn get(&mut self, key: u64) -> Option<T> {
-        if let (k, Some(value)) = self.table[self.index(key)] {
-            if k == key {
-                self.hits += 1;
-                return Some(value);
+    pub fn get(&mut self, key: u64) -> Option<Entry> {
+        if let Some(entry) = self.table[self.index(key)] {
+            if entry.key == key {
+                return Some(entry);
             }
         }
         None
-    }
-
-    /// Retrieve how many hits this table has had.
-    pub fn hits(&self) -> usize {
-        self.hits
     }
 
     /// Retrieve the size of the table.
@@ -47,7 +74,7 @@ impl<T: Copy> Table<T> {
     /// Retrieve the number of elements in the table.
     pub fn count(&self) -> usize {
         (0..self.table.len())
-            .filter(|&i| self.table[i].1.is_some())
+            .filter(|&i| self.table[i].is_some())
             .count()
     }
 }
@@ -57,56 +84,84 @@ mod tests {
     use super::*;
 
     #[test]
-    fn usage() {
-        let mut table = Table::<usize>::new(10);
+    fn gigabyte() {
+        let gb = 0.7;
+        let table = Table::from_gb(gb);
+        let size = table.size();
+        let bytes = size * std::mem::size_of::<Entry>();
+
+        assert!(bytes < (1e9 * gb + 1000.0) as usize);
+        assert!(bytes > (1e9 * gb - 1000.0) as usize);
+    }
+
+    #[test]
+    fn put_and_get() {
+        let mut table = Table::new(10);
+        assert_eq!(table.size(), 11);
 
         assert_eq!(table.get(0), None);
         assert_eq!(table.get(3), None);
         assert_eq!(table.get(9), None);
 
-        table.put(3, 3);
-        assert_eq!(table.get(3), Some(3));
+        let entry = Entry {
+            key: 3,
+            value: eval::Eval::MIN,
+            flag: Flag::UPPERBOUND,
+            bestmove: 0,
+        };
+        table.put(entry.key, entry.value, entry.flag, entry.bestmove);
+        assert_eq!(table.get(3), Some(entry));
+        assert_eq!(table.get(14), None);
 
-        table.put(15, 5);
-        assert_eq!(table.get(15), Some(5));
-        assert_eq!(table.get(5), None);
+        let entry = Entry {
+            key: 8,
+            value: eval::Eval::MAX,
+            flag: Flag::LOWERBOUND,
+            bestmove: 3,
+        };
+        table.put(entry.key, entry.value, entry.flag, entry.bestmove);
+        assert_eq!(table.get(8), Some(entry));
+        assert_eq!(table.get(30), None);
 
-        table.put(1, 1);
-        assert_eq!(table.get(1), Some(1));
-        assert_eq!(table.get(211), None);
-
-        table.put(13, 13);
-        assert_eq!(table.get(13), Some(13));
-        assert_eq!(table.get(3), None);
+        let entry = Entry {
+            key: 19,
+            value: eval::Eval::MAX,
+            flag: Flag::LOWERBOUND,
+            bestmove: 3,
+        };
+        table.put(entry.key, entry.value, entry.flag, entry.bestmove);
+        assert_eq!(table.get(19), Some(entry));
+        assert_eq!(table.get(8), None);
     }
 
     #[test]
     fn size_and_count() {
-        let mut table = Table::<usize>::new(10);
+        let mut table = Table::new(10);
 
-        table.put(3, 3);
-        table.put(15, 5);
-        table.put(1, 1);
-        table.put(13, 13);
+        let entry = Entry {
+            key: 3,
+            value: eval::Eval::MIN,
+            flag: Flag::UPPERBOUND,
+            bestmove: 0,
+        };
+        table.put(entry.key, entry.value, entry.flag, entry.bestmove);
 
-        assert_eq!(table.count(), 3);
-        assert_eq!(table.size(), 10);
-    }
+        let entry = Entry {
+            key: 8,
+            value: eval::Eval::MAX,
+            flag: Flag::LOWERBOUND,
+            bestmove: 3,
+        };
+        table.put(entry.key, entry.value, entry.flag, entry.bestmove);
 
-    #[test]
-    fn hits() {
-        let mut table = Table::<usize>::new(10);
+        let entry = Entry {
+            key: 19,
+            value: eval::Eval::MAX,
+            flag: Flag::LOWERBOUND,
+            bestmove: 3,
+        };
+        table.put(entry.key, entry.value, entry.flag, entry.bestmove);
 
-        table.put(3, 3);
-        table.put(15, 5);
-        table.put(1, 1);
-        table.put(13, 13);
-
-        let _ = table.get(3);
-        let _ = table.get(1);
-        let _ = table.get(6);
-        let _ = table.get(13);
-
-        assert_eq!(table.hits(), 2);
+        assert_eq!(table.count(), 2);
     }
 }

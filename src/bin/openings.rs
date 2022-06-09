@@ -85,7 +85,7 @@ fn stats(depth: usize) {
     println!("count unique  = {}", count_unique);
     println!("count all     = {}", count_all);
     println!(
-        "unique / all  = {:.4}",
+        "unique / all  = {:.4}\n",
         count_unique as f64 / count_all as f64
     );
 }
