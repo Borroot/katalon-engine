@@ -618,6 +618,13 @@ mod tests {
         assert_eq!(board.isover(), Some(Result::Player1));
     }
 
+    /// Test winning in the fastest possible way.
+    #[test]
+    fn isover_movecount() {
+        let board = Board::load("2021232422").unwrap();
+        assert_eq!(board.isover(), Some(Result::Player1));
+    }
+
     /// Test display of nonempty board.
     #[test]
     fn display_nonempty() {

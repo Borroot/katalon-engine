@@ -1,36 +1,10 @@
-benchmarking depth 20 low
-error in 2: wrong eval of win in 14, should be win in 18
-error in 4: wrong eval of loss in 8, should be loss in 24
-error in 9: wrong eval of win in 13, should be win in 16
-error in 10: wrong eval of win in 8, should be win in 10
-error in 11: wrong eval of loss in 12, should be loss in 18
-error in 13: wrong eval of win in 9, should be win in 16
-error in 14: wrong eval of loss in 15, should be loss in 21
-error in 18: wrong eval of win in 9, should be win in 19
-error in 23: wrong eval of win in 12, should be win in 28
-error in 27: wrong eval of loss in 15, should be loss in 16
-error in 30: wrong eval of win in 8, should be win in 14
-error in 31: wrong eval of loss in 6, should be loss in 14
-error in 38: wrong eval of draw in 33, should be win in 27
-error in 39: wrong eval of win in 7, should be win in 19
-error in 40: wrong eval of win in 14, should be win in 16
-error in 41: wrong eval of win in 5, should be win in 17
-error in 42: wrong eval of win in 6, should be win in 10
-error in 44: wrong eval of win in 21, should be win in 27
-error in 46: wrong eval of loss in 10, should be loss in 19
-error in 50: wrong eval of win in 18, should be win in 12
-error in 53: wrong eval of win in 12, should be win in 16
-error in 57: wrong eval of win in 16, should be win in 22
-error in 60: wrong eval of win in 11, should be win in 20
-error in 62: wrong eval of draw in 15, should be win in 12
-error in 63: wrong eval of loss in 17, should be loss in 22
-error in 68: wrong eval of loss in 5, should be loss in 14
-error in 69: wrong eval of draw in 29, should be win in 25
-error in 73: wrong eval of draw in 29, should be win in 21
-error in 76: wrong eval of loss in 11, should be loss in 20
-error in 80: wrong eval of win in 6, should be win in 12
-error in 82: wrong eval of loss in 7, should be loss in 19
-error in 84: wrong eval of loss in 18, should be loss in 22
-error in 86: wrong eval of loss in 12, should be loss in 16
-error in 88: wrong eval of win in 7, should be win in 13
-error in 95: wrong eval of win in 9, should be win in 17
+error in 19: wrong eval of win in 10, should be win in 4 4401123032002210141121422002002
+error in 41: wrong eval of win in 13, should be win in 3 0114403312102200110143200341211
+
+gb = 0.00001, 6
+gb = 0.0001, 14
+gb = 0.0010, 17
+gb = 0.0100, 18
+gb = 0.1000, 18
+gb = 1.0000, 18
+gb = 10.000, 18

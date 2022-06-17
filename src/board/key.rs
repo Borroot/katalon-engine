@@ -20,14 +20,9 @@ impl super::Board {
 
     /// Indiciate whether the square of the lastmove should be in the key.
     fn lastmove_square(&self) -> bool {
-        debug_assert!(self.lastmove != None);
-
-        // The 6 bytes of lastmove will only contain the square if that square
-        // is full and (square == cell or double(square, cell) != None).
-        let mask_square = 0b11111 << self.lastmove.unwrap().0 * 5;
-        let (square, cell) = self.lastmove.unwrap();
-        return self.mask & mask_square == mask_square
-            && (square == cell || Self::double(square, cell) != None);
+        let (_square, cell) = self.lastmove.unwrap();
+        let mask_square = 0b11111 << cell * 5;
+        return self.mask & mask_square == mask_square;
     }
 
     /// Map the state or mask to the given symmetry.
@@ -42,8 +37,9 @@ impl super::Board {
 
     /// Return a u64 uniquely identifying this state of the board.
     pub fn key(&self) -> u64 {
+        debug_assert!(self.lastmove != None); // TODO make sure this never happens
+
         // 4 bytes takestreak + 6 bytes lastmove + 1 byte onturn + 25 bytes mask + 25 bytes state
-        // TODO onturn info is unneccessary
         let mut key: u64 = 0;
 
         // Take the first four bytes of the takestreak.
@@ -58,6 +54,7 @@ impl super::Board {
         }
 
         // Add the player onturn: 0 if onturn == player1 else 1.
+        // TODO onturn info is unneccessary
         key += (self.onturn as u64) << 50;
 
         // Add the mask and the state.
@@ -69,6 +66,9 @@ impl super::Board {
 
     /// Return all u64 uniquely identifying this equivalence class of the board.
     pub fn keys(&self) -> [u64; 8] {
+        debug_assert!(self.lastmove != None); // TODO make sure this never happens
+        // TODO convert this to an iterator implementation
+
         let mut keys: [u64; 8] = [0; 8];
         keys[0] = self.key();
 
@@ -96,6 +96,7 @@ impl super::Board {
             }
 
             // Add the player onturn: 0 if onturn == player1 else 1.
+            // TODO onturn info is unneccessary
             keys[index + 1] += (self.onturn as u64) << 50;
 
             // Add the mask and the state.

@@ -2,7 +2,6 @@ use crate::{board, eval, player};
 use rand::Rng;
 
 mod minmax;
-mod stats;
 mod table;
 
 /// A player directed by the minmax algorithm.
@@ -16,14 +15,13 @@ impl player::Player for Solver {
     }
 }
 
-// TODO refactor to put every in a Solver object
 // TODO add a function which evaluates all the moves
 
 /// Return all of the best moves if finished within the specified time with stats.
 pub fn bestmoves_with_stats(
     node: &board::Board,
     timeout: std::time::Duration,
-) -> (Result<(eval::Eval, Vec<(u8, u8)>), ()>, stats::Stats) {
+) -> (Result<(eval::Eval, Vec<(u8, u8)>), ()>, minmax::Stats) {
     let (send_timeout, recv_timeout) = std::sync::mpsc::channel();
     let (send_result, recv_result) = std::sync::mpsc::channel();
 
@@ -45,6 +43,7 @@ pub fn bestmoves_with_stats(
         }
     }
 }
+
 /// Return all of the best moves if finished within the specified time.
 pub fn bestmoves(
     node: &board::Board,
@@ -57,6 +56,8 @@ pub fn bestmoves(
 mod tests {
     use super::*;
     use crate::player::Player;
+
+    // TODO remove these tests except for the last one
 
     fn evaluate(board: &board::Board) -> eval::Eval {
         bestmoves(board, std::time::Duration::MAX).unwrap().0

@@ -19,6 +19,7 @@ impl std::fmt::Display for Result {
     }
 }
 
+// TODO refactor to be an integer
 /// The evaluation value of a state.
 #[derive(Debug, Clone, Copy)]
 pub struct Eval {
@@ -35,7 +36,7 @@ impl Eval {
         distance: 0,
     };
 
-    // The best evaluation, already won.
+    /// The best evaluation, already won.
     pub const MAX: Self = Self {
         result: Result::Win,
         distance: 0,
@@ -45,32 +46,44 @@ impl Eval {
         Self { result, distance }
     }
 
-    // TODO dont consume but create a new object
-    /// Consumes the evaluation and reverses the result.
-    pub fn rev(mut self) -> Self {
-        match self.result {
-            Result::Loss => self.result = Result::Win,
-            Result::Win => self.result = Result::Loss,
-            Result::Draw => (),
+    /// Creates a new evaluation and reverses the result.
+    pub fn rev(self) -> Self {
+        Self {
+            result: match self.result {
+                Result::Loss => Result::Win,
+                Result::Win => Result::Loss,
+                Result::Draw => Result::Draw,
+            },
+            distance: self.distance,
         }
-        self
     }
 }
 
 impl PartialEq for Eval {
     fn eq(&self, other: &Self) -> bool {
-        self.result == other.result && self.distance == other.distance
+        if self.result == other.result {
+            match self.result {
+                Result::Win | Result::Loss => self.distance == other.distance,
+                Result::Draw => true,
+            }
+        } else {
+            false
+        }
+        //self.result == other.result && self.distance == other.distance
     }
 }
 
 impl Eq for Eval {}
 
 impl Ord for Eval {
+    // TODO draw scores around zero https://www.chessprogramming.org/Score#cite_note-7
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match self.result.cmp(&other.result) {
             std::cmp::Ordering::Equal => match self.result {
                 Result::Win => self.distance.cmp(&other.distance).reverse(),
-                _ => self.distance.cmp(&other.distance),
+                Result::Loss => self.distance.cmp(&other.distance),
+                Result::Draw => std::cmp::Ordering::Equal,
+                //Result::Loss | Result::Draw => self.distance.cmp(&other.distance),
             },
             result => result,
         }
@@ -147,8 +160,10 @@ mod tests {
     #[test]
     fn eval_ord_draw() {
         assert!(Eval::new(Result::Draw, 5) == Eval::new(Result::Draw, 5));
-        assert!(Eval::new(Result::Draw, 5) > Eval::new(Result::Draw, 3));
-        assert!(Eval::new(Result::Draw, 5) < Eval::new(Result::Draw, 7));
+        assert!(Eval::new(Result::Draw, 5) == Eval::new(Result::Draw, 3));
+        assert!(Eval::new(Result::Draw, 5) == Eval::new(Result::Draw, 7));
+        //assert!(Eval::new(Result::Draw, 5) > Eval::new(Result::Draw, 3));
+        //assert!(Eval::new(Result::Draw, 5) < Eval::new(Result::Draw, 7));
 
         assert!(Eval::new(Result::Draw, 5) < Eval::new(Result::Win, 5));
         assert!(Eval::new(Result::Draw, 5) < Eval::new(Result::Win, 3));
@@ -157,6 +172,9 @@ mod tests {
         assert!(Eval::new(Result::Draw, 5) > Eval::new(Result::Loss, 5));
         assert!(Eval::new(Result::Draw, 5) > Eval::new(Result::Loss, 3));
         assert!(Eval::new(Result::Draw, 5) > Eval::new(Result::Loss, 7));
+
+        assert!(Eval::new(Result::Draw, 41) >= Eval::new(Result::Draw, 41));
+        assert!(Eval::new(Result::Draw, 41) <= Eval::new(Result::Draw, 41));
     }
 
     #[test]

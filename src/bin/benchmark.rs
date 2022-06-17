@@ -122,8 +122,10 @@ fn run_set(name: String, entries: Vec<Entry>) -> Result<Bench, ()> {
 }
 
 fn main() {
-    let variants = ["low", "high"];
-    let depths = [20, 10, 5];
+    //let variants = ["low", "high"];
+    //let depths = [20, 10, 5];
+    let variants = ["low"];
+    let depths = [25];
 
     let mut benches = Vec::<Bench>::new();
     for depth in depths {
