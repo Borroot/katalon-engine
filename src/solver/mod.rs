@@ -69,16 +69,16 @@ mod tests {
         // As player1, depth 1
         let board1 = board::Board::load("202123242").unwrap();
         assert_eq!(Solver.play(&board1), (2, 2));
-        assert_eq!(evaluate(&board1), eval::Eval::new(eval::Result::Win, 1));
+        assert_eq!(evaluate(&board1), eval::Eval::from(eval::Result::Win, 1));
 
         // As player2, depth 1
         let board2 = board::Board::load("0020103040").unwrap();
         assert_eq!(Solver.play(&board2), (0, 0));
-        assert_eq!(evaluate(&board2), eval::Eval::new(eval::Result::Win, 1));
+        assert_eq!(evaluate(&board2), eval::Eval::from(eval::Result::Win, 1));
 
         // As player1, depth 2
         let board3 = board::Board::load("01234321042244114110033").unwrap();
-        assert_eq!(evaluate(&board3), eval::Eval::new(eval::Result::Win, 2));
+        assert_eq!(evaluate(&board3), eval::Eval::from(eval::Result::Win, 2));
     }
 
     #[test]
@@ -87,7 +87,7 @@ mod tests {
         // As player2, depth 3
         let board1 = board::Board::load("2200103024131211424323").unwrap();
         assert_eq!(Solver.play(&board1), (3, 3));
-        assert_eq!(evaluate(&board1), eval::Eval::new(eval::Result::Win, 3));
+        assert_eq!(evaluate(&board1), eval::Eval::from(eval::Result::Win, 3));
     }
 
     /// Test if minmax detects its gonna lose.
@@ -96,7 +96,7 @@ mod tests {
         // As player1, depth 2
         let board1 = board::Board::load("22001030241312114243233").unwrap();
         assert_eq!(Solver.play(&board1), (3, 4));
-        assert_eq!(evaluate(&board1), eval::Eval::new(eval::Result::Loss, 2));
+        assert_eq!(evaluate(&board1), eval::Eval::from(eval::Result::Loss, 2));
     }
 
     /// Test if minmax detects its gonna be a draw.
@@ -112,6 +112,6 @@ mod tests {
             .unwrap();
 
         let board = board::Board::load(&(start + cycle)).unwrap();
-        assert_eq!(evaluate(&board), eval::Eval::new(eval::Result::Draw, 1));
+        assert_eq!(evaluate(&board), eval::Eval::from(eval::Result::Draw, 1));
     }
 }

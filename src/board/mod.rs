@@ -55,15 +55,17 @@ pub struct Board {
     /// Keeps how many turns in a row pieces have been taken.
     takestreak: u8,
 
+    // This is an i16 because this make eval::Eval more efficient.
     /// The number of moves that have been made.
-    movecount: u8,
+    movecount: i16,
 }
 
 impl Board {
     /// The maximum number of takes that are allowed to be made in a row.
-    /// Using 15 makes it fit nicely into four bits.
-    /// Using 15 also makes sure that the movecount fits in a u8.
     pub const TAKESTREAK_LIMIT: u8 = 15;
+
+    /// An upperbound on the maximum number of moves that can be made in a game.
+    pub const MOVECOUNT_LIMIT: i16 = (21 - 7) * Self::TAKESTREAK_LIMIT as i16;
 
     /// Create a new empty board.
     pub fn new() -> Self {
@@ -270,8 +272,20 @@ impl Board {
         return None; // The game is not over yet.
     }
 
+    /// Return all the moves that can be made from the current position as (square, cell).
+    pub fn moves(&self) -> Vec<(u8, u8)> {
+        if self.isfirst() {
+            vec![(0, 0), (0, 1), (0, 2), (0, 4), (2, 0), (2, 2)]
+        } else {
+            (0..=4)
+                .map(|cell| (self.square().unwrap(), cell))
+                .filter(|&(square, cell)| self.canplay(square, cell))
+                .collect()
+        }
+    }
+
     /// Return how many moves have been made this game.
-    pub fn movecount(&self) -> u8 {
+    pub fn movecount(&self) -> i16 {
         self.movecount
     }
 

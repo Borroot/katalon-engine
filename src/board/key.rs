@@ -19,6 +19,7 @@ impl super::Board {
     ];
 
     /// Indiciate whether the square of the lastmove should be in the key.
+    /// This is the case if the square we need to move into next is full.
     fn lastmove_square(&self) -> bool {
         let (_square, cell) = self.lastmove.unwrap();
         let mask_square = 0b11111 << cell * 5;
@@ -39,23 +40,19 @@ impl super::Board {
     pub fn key(&self) -> u64 {
         debug_assert!(self.lastmove != None); // TODO make sure this never happens
 
-        // 4 bytes takestreak + 6 bytes lastmove + 1 byte onturn + 25 bytes mask + 25 bytes state
+        // 8 bytes takestreak + 6 bytes lastmove + 25 bytes mask + 25 bytes state
         let mut key: u64 = 0;
 
-        // Take the first four bytes of the takestreak.
-        key += (self.takestreak as u64) << 57;
+        // Add the takestreak.
+        key += (self.takestreak as u64) << 56;
 
         // Add the lastmove to the key.
         if self.lastmove != None {
-            key += (self.lastmove.unwrap().1 as u64) << 51; // add the cell
+            key += (self.lastmove.unwrap().1 as u64) << 50; // add the cell
             if self.lastmove_square() {
-                key += (self.lastmove.unwrap().0 as u64) << 54; // add the square
+                key += (self.lastmove.unwrap().0 as u64) << 53; // add the square
             }
         }
-
-        // Add the player onturn: 0 if onturn == player1 else 1.
-        // TODO onturn info is unneccessary
-        key += (self.onturn as u64) << 50;
 
         // Add the mask and the state.
         key += (self.mask as u64) << 25;
@@ -67,7 +64,7 @@ impl super::Board {
     /// Return all u64 uniquely identifying this equivalence class of the board.
     pub fn keys(&self) -> [u64; 8] {
         debug_assert!(self.lastmove != None); // TODO make sure this never happens
-        // TODO convert this to an iterator implementation
+                                              // TODO convert this to an iterator implementation
 
         let mut keys: [u64; 8] = [0; 8];
         keys[0] = self.key();
@@ -76,8 +73,8 @@ impl super::Board {
 
         // Generate the keys for all the symmetries.
         for index in 0..7 {
-            // Take the first four bytes of the takestreak.
-            keys[index + 1] += (self.takestreak as u64) << 57;
+            // Add the takestreak.
+            keys[index + 1] += (self.takestreak as u64) << 56;
 
             // Add the lastmove to the key.
             if self.lastmove != None {
@@ -89,15 +86,11 @@ impl super::Board {
                 );
 
                 // Add the cell and the square to the key.
-                keys[index + 1] += (lastmove_symmetry.1 as u64) << 51; // cell
+                keys[index + 1] += (lastmove_symmetry.1 as u64) << 50; // cell
                 if lastmove_square {
-                    keys[index + 1] += (lastmove_symmetry.0 as u64) << 54;
+                    keys[index + 1] += (lastmove_symmetry.0 as u64) << 53; // square
                 }
             }
-
-            // Add the player onturn: 0 if onturn == player1 else 1.
-            // TODO onturn info is unneccessary
-            keys[index + 1] += (self.onturn as u64) << 50;
 
             // Add the mask and the state.
             keys[index + 1] += Self::symmetry_map(self.mask, &Self::SYMMETRIES[index]) << 25;
@@ -119,10 +112,10 @@ mod tests {
         assert!(board1.lastmove_square());
 
         let board2 = Board::load("221400203101123").unwrap();
-        assert!(board2.lastmove_square());
+        assert!(!board2.lastmove_square());
 
         let board3 = Board::load("2214002031011232").unwrap();
-        assert!(!board3.lastmove_square());
+        assert!(board3.lastmove_square());
     }
 
     /// Test symmetry mapping.
@@ -139,19 +132,19 @@ mod tests {
         let board1 = Board::load("221400203101122").unwrap();
         assert_eq!(
             board1.key(),
-            0b000__0001__010_010__0__00001_00010_11111_11111_11111__00000_00010_01001_10100_10011
+            0b00000001__010_010__00001_00010_11111_11111_11111__00000_00010_01001_10100_10011
         );
 
         let board2 = Board::load("221400203101123").unwrap();
         assert_eq!(
             board2.key(),
-            0b000__0001__010_011__0__00001_00010_11111_11111_11111__00000_00000_00101_10100_10011
+            0b00000001__000_011__00001_00010_11111_11111_11111__00000_00000_00101_10100_10011
         );
 
         let board3 = Board::load("2214002031011232").unwrap();
         assert_eq!(
             board3.key(),
-            0b000__0000__000_010__1__00001_00110_11111_11111_11111__00001_00010_11010_01011_01100
+            0b00000000__011_010__00001_00110_11111_11111_11111__00001_00010_11010_01011_01100
         );
     }
 
@@ -163,12 +156,12 @@ mod tests {
 
         assert_eq!(
             keys1[0],
-            0b000__0001__010_010__0__00001_00010_11111_11111_11111__00000_00010_01001_10100_10011
+            0b00000001__010_010__00001_00010_11111_11111_11111__00000_00010_01001_10100_10011
         );
 
         assert_eq!(
             keys1[6],
-            0b000__0001__010_010__0__11111_11111_11111_01000_10000__11001_00101_10010_01000_00000
+            0b00000001__010_010__11111_11111_11111_01000_10000__11001_00101_10010_01000_00000
         );
 
         let board2 = Board::load("221400203101123").unwrap();
@@ -176,19 +169,25 @@ mod tests {
 
         assert_eq!(
             keys2[0],
-            0b000__0001__010_011__0__00001_00010_11111_11111_11111__00000_00000_00101_10100_10011
+            0b00000001__000_011__00001_00010_11111_11111_11111__00000_00000_00101_10100_10011
         );
 
         assert_eq!(
             keys2[6],
-            0b000__0001__010_001__0__11111_11111_11111_01000_10000__11001_00101_10100_00000_00000
+            0b00000001__000_001__11111_11111_11111_01000_10000__11001_00101_10100_00000_00000
         );
 
         let board3 = Board::load("2214002031011232").unwrap();
         let keys3 = board3.keys();
+
+        assert_eq!(
+            keys3[0],
+            0b00000000__011_010__00001_00110_11111_11111_11111__00001_00010_11010_01011_01100
+        );
+
         assert_eq!(
             keys3[6],
-            0b000__0000__000_010__1__11111_11111_11111_01100_10000__00110_11010_01011_01000_10000
+            0b00000000__001_010__11111_11111_11111_01100_10000__00110_11010_01011_01000_10000
         );
     }
 
@@ -200,12 +199,12 @@ mod tests {
 
         assert_eq!(
             keys1[0],
-            0b0__0000__000_001__1__00000_00000_00010_01000_00000__00000_00000_00000_00000_00000
+            0b00000000__000_001__00000_00000_00010_01000_00000__00000_00000_00000_00000_00000
         );
 
         assert_eq!(
             keys1[4],
-            0b0__0000__000_000__1__00000_00000_00001_00000_10000__00000_00000_00000_00000_00000
+            0b00000000__000_000__00000_00000_00001_00000_10000__00000_00000_00000_00000_00000
         );
     }
 }

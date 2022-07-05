@@ -54,8 +54,8 @@ fn load_entry(entry: String) -> Entry {
         "draw" => eval::Result::Draw,
         &_ => panic!(),
     };
-    let distance = entry.next().unwrap().parse::<u8>().unwrap();
-    let eval = eval::Eval::new(result, distance);
+    let distance = entry.next().unwrap().parse::<i16>().unwrap();
+    let eval = eval::Eval::from(result, distance);
 
     Entry { board, eval }
 }
@@ -125,7 +125,7 @@ fn main() {
     //let variants = ["low", "high"];
     //let depths = [20, 10, 5];
     let variants = ["low"];
-    let depths = [25];
+    let depths = [10];
 
     let mut benches = Vec::<Bench>::new();
     for depth in depths {

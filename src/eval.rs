@@ -1,3 +1,5 @@
+use crate::board;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Result {
     Loss,
@@ -19,86 +21,106 @@ impl std::fmt::Display for Result {
     }
 }
 
-// TODO refactor to be an integer
 /// The evaluation value of a state.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Eval {
-    /// Result of the state from the root player perspective.
-    pub result: Result,
-    /// Number of moves to get to the result.
-    pub distance: u8,
+    /// The internal representation of the evaluation is as shown in the diagram below.
+    /// L = Loss, D = Draw, W = Win, ML = MOVECOUNT_LIMIT
+    /// <- MIN i16                                 0                                 MAX i16 ->
+    /// <------------------------------------------------------------------------------------->
+    ///    |        LOSS        | |              DRAW               | |         WIN        |
+    ///    |                    / \                |                / \                    |
+    ///  L in 0           L in ML D in ML        D in 0       D in ML W in ML           W in 0
+    ///    |                |        |             |            |        |                 |
+    ///  -2ML-1           -ML-1     -ML            0            ML      ML+1             2ML+1
+    n: i16,
 }
 
 impl Eval {
     /// The worst evaluation, already lost.
-    pub const MIN: Self = Self {
-        result: Result::Loss,
-        distance: 0,
-    };
+    pub const MIN: Self = Self::new(-2 * board::Board::MOVECOUNT_LIMIT - 1);
 
     /// The best evaluation, already won.
-    pub const MAX: Self = Self {
-        result: Result::Win,
-        distance: 0,
-    };
+    pub const MAX: Self = Self::new(2 * board::Board::MOVECOUNT_LIMIT + 1);
 
-    pub fn new(result: Result, distance: u8) -> Self {
-        Self { result, distance }
+    /// Create an evaluation from the given internal representational value.
+    const fn new(n: i16) -> Self {
+        Self { n }
     }
 
-    /// Creates a new evaluation and reverses the result.
-    pub fn rev(self) -> Self {
-        Self {
-            result: match self.result {
-                Result::Loss => Result::Win,
-                Result::Win => Result::Loss,
-                Result::Draw => Result::Draw,
-            },
-            distance: self.distance,
-        }
-    }
-}
+    /// Create an evaluation from the given result and distance.
+    pub fn from(result: Result, distance: i16) -> Self {
+        debug_assert!(distance <= board::Board::MOVECOUNT_LIMIT);
+        debug_assert!(distance >= -board::Board::MOVECOUNT_LIMIT);
+        debug_assert!(distance >= 0 || result == Result::Draw);
 
-impl PartialEq for Eval {
-    fn eq(&self, other: &Self) -> bool {
-        if self.result == other.result {
-            match self.result {
-                Result::Win | Result::Loss => self.distance == other.distance,
-                Result::Draw => true,
-            }
+        Self::new(match result {
+            Result::Draw => distance,
+            Result::Win => 2 * board::Board::MOVECOUNT_LIMIT + 1 - distance,
+            Result::Loss => -2 * board::Board::MOVECOUNT_LIMIT - 1 + distance,
+        })
+    }
+
+    /// Give the result of the evaluation.
+    pub fn result(&self) -> Result {
+        if self.n > board::Board::MOVECOUNT_LIMIT {
+            Result::Win
+        } else if self.n < -board::Board::MOVECOUNT_LIMIT {
+            Result::Loss
         } else {
-            false
+            Result::Draw
         }
-        //self.result == other.result && self.distance == other.distance
+    }
+
+    /// Convert the evaluation to a human readable form returning (result, distance).
+    /// Be aware that the distance can be negative if the result is a draw.
+    pub fn human(&self) -> (Result, i16) {
+        if self.n > board::Board::MOVECOUNT_LIMIT {
+            (Result::Win, 2 * board::Board::MOVECOUNT_LIMIT + 1 - self.n)
+        } else if self.n < -board::Board::MOVECOUNT_LIMIT {
+            (Result::Loss, 2 * board::Board::MOVECOUNT_LIMIT + 1 + self.n)
+        } else {
+            (Result::Draw, self.n)
+        }
+    }
+
+    /// Convert the distance of this evaluation to be relative from the rootcount to the given movecount.
+    pub fn relative(&self, rootcount: i16, movecount: i16) -> Self {
+        let diff = movecount - rootcount;
+        if self.n > board::Board::MOVECOUNT_LIMIT {
+            // win
+            Self::new(self.n + diff)
+        } else if self.n < -board::Board::MOVECOUNT_LIMIT {
+            // loss
+            Self::new(self.n - diff)
+        } else if self.n >= 0 {
+            // positive draw
+            Self::new(self.n - diff)
+        } else {
+            // negative draw
+            Self::new(self.n + diff)
+        }
+    }
+
+    /// Convert the distance of this evaluation to be relative from the given movecount to the rootcount.
+    pub fn absolute(&self, rootcount: i16, movecount: i16) -> Self {
+        debug_assert!(movecount >= rootcount);
+        self.relative(movecount, rootcount)
     }
 }
 
-impl Eq for Eval {}
+impl std::ops::Neg for Eval {
+    type Output = Self;
 
-impl Ord for Eval {
-    // TODO draw scores around zero https://www.chessprogramming.org/Score#cite_note-7
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match self.result.cmp(&other.result) {
-            std::cmp::Ordering::Equal => match self.result {
-                Result::Win => self.distance.cmp(&other.distance).reverse(),
-                Result::Loss => self.distance.cmp(&other.distance),
-                Result::Draw => std::cmp::Ordering::Equal,
-                //Result::Loss | Result::Draw => self.distance.cmp(&other.distance),
-            },
-            result => result,
-        }
-    }
-}
-
-impl PartialOrd for Eval {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
+    fn neg(self) -> Self::Output {
+        Self::new(-self.n)
     }
 }
 
 impl std::fmt::Display for Eval {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} in {}", self.result, self.distance)
+        let (result, distance) = self.human();
+        write!(f, "{} in {}", result, distance)
     }
 }
 
@@ -106,28 +128,47 @@ impl std::fmt::Display for Eval {
 mod tests {
     use super::*;
 
-    #[test]
-    fn reverse() {
-        assert!(Eval::MAX.rev() == Eval::MIN);
-        assert!(Eval::MIN.rev() == Eval::MAX);
+    // TODO write tests for absolute() and relative()
 
-        assert!(Eval::new(Result::Loss, 5).rev() == Eval::new(Result::Win, 5));
-        assert!(Eval::new(Result::Win, 5).rev() == Eval::new(Result::Loss, 5));
-        assert!(Eval::new(Result::Draw, 5).rev() == Eval::new(Result::Draw, 5));
+    /// Check whether the internal representation maps correctly.
+    #[test]
+    fn internals() {
+        const ML: i16 = board::Board::MOVECOUNT_LIMIT;
+
+        assert_eq!(Eval::from(Result::Loss, 0).n, -2 * ML - 1);
+        assert_eq!(Eval::from(Result::Loss, ML).n, -ML - 1);
+        assert_eq!(-Eval::from(Result::Draw, ML).n, -ML);
+        assert_eq!(-Eval::from(Result::Draw, 0).n, 0);
+        assert_eq!(Eval::from(Result::Draw, 0).n, 0);
+        assert_eq!(Eval::from(Result::Draw, ML).n, ML);
+        assert_eq!(Eval::from(Result::Win, ML).n, ML + 1);
+        assert_eq!(Eval::from(Result::Win, 0).n, 2 * ML + 1);
+    }
+
+    #[test]
+    fn negate() {
+        assert_eq!(-Eval::MAX, Eval::MIN);
+        assert_eq!(-Eval::MIN, Eval::MAX);
+
+        assert_eq!(-Eval::from(Result::Loss, 5), Eval::from(Result::Win, 5));
+        assert_eq!(-Eval::from(Result::Win, 5), Eval::from(Result::Loss, 5));
+        assert_ne!(-Eval::from(Result::Draw, 5), Eval::from(Result::Draw, 5));
     }
 
     #[test]
     fn max_ord() {
-        assert!(Eval::MAX > Eval::new(Result::Win, 1));
-        assert!(Eval::MAX > Eval::new(Result::Draw, 1));
-        assert!(Eval::MAX > Eval::new(Result::Loss, 1));
+        assert!(Eval::MAX > Eval::from(Result::Win, 1));
+        assert!(Eval::MAX > Eval::from(Result::Draw, 1));
+        assert!(Eval::MAX > -Eval::from(Result::Draw, 1));
+        assert!(Eval::MAX > Eval::from(Result::Loss, 1));
     }
 
     #[test]
     fn min_ord() {
-        assert!(Eval::MIN < Eval::new(Result::Loss, 1));
-        assert!(Eval::MIN < Eval::new(Result::Draw, 1));
-        assert!(Eval::MIN < Eval::new(Result::Win, 1));
+        assert!(Eval::MIN < Eval::from(Result::Loss, 1));
+        assert!(Eval::MIN < Eval::from(Result::Draw, 1));
+        assert!(Eval::MIN < -Eval::from(Result::Draw, 1));
+        assert!(Eval::MIN < Eval::from(Result::Win, 1));
     }
 
     #[test]
@@ -144,58 +185,82 @@ mod tests {
 
     #[test]
     fn eval_ord_win() {
-        assert!(Eval::new(Result::Win, 5) == Eval::new(Result::Win, 5));
-        assert!(Eval::new(Result::Win, 3) > Eval::new(Result::Win, 5));
-        assert!(Eval::new(Result::Win, 5) < Eval::new(Result::Win, 3));
+        assert!(Eval::from(Result::Win, 5) == Eval::from(Result::Win, 5));
+        assert!(Eval::from(Result::Win, 3) > Eval::from(Result::Win, 5));
+        assert!(Eval::from(Result::Win, 5) < Eval::from(Result::Win, 3));
 
-        assert!(Eval::new(Result::Win, 5) > Eval::new(Result::Draw, 5));
-        assert!(Eval::new(Result::Win, 5) > Eval::new(Result::Draw, 3));
-        assert!(Eval::new(Result::Win, 5) > Eval::new(Result::Draw, 7));
+        assert!(Eval::from(Result::Win, 5) > Eval::from(Result::Draw, 5));
+        assert!(Eval::from(Result::Win, 5) > Eval::from(Result::Draw, 3));
+        assert!(Eval::from(Result::Win, 5) > Eval::from(Result::Draw, 7));
 
-        assert!(Eval::new(Result::Win, 5) > Eval::new(Result::Loss, 5));
-        assert!(Eval::new(Result::Win, 5) > Eval::new(Result::Loss, 3));
-        assert!(Eval::new(Result::Win, 5) > Eval::new(Result::Loss, 7));
-    }
-
-    #[test]
-    fn eval_ord_draw() {
-        assert!(Eval::new(Result::Draw, 5) == Eval::new(Result::Draw, 5));
-        assert!(Eval::new(Result::Draw, 5) == Eval::new(Result::Draw, 3));
-        assert!(Eval::new(Result::Draw, 5) == Eval::new(Result::Draw, 7));
-        //assert!(Eval::new(Result::Draw, 5) > Eval::new(Result::Draw, 3));
-        //assert!(Eval::new(Result::Draw, 5) < Eval::new(Result::Draw, 7));
-
-        assert!(Eval::new(Result::Draw, 5) < Eval::new(Result::Win, 5));
-        assert!(Eval::new(Result::Draw, 5) < Eval::new(Result::Win, 3));
-        assert!(Eval::new(Result::Draw, 5) < Eval::new(Result::Win, 7));
-
-        assert!(Eval::new(Result::Draw, 5) > Eval::new(Result::Loss, 5));
-        assert!(Eval::new(Result::Draw, 5) > Eval::new(Result::Loss, 3));
-        assert!(Eval::new(Result::Draw, 5) > Eval::new(Result::Loss, 7));
-
-        assert!(Eval::new(Result::Draw, 41) >= Eval::new(Result::Draw, 41));
-        assert!(Eval::new(Result::Draw, 41) <= Eval::new(Result::Draw, 41));
+        assert!(Eval::from(Result::Win, 5) > Eval::from(Result::Loss, 5));
+        assert!(Eval::from(Result::Win, 5) > Eval::from(Result::Loss, 3));
+        assert!(Eval::from(Result::Win, 5) > Eval::from(Result::Loss, 7));
     }
 
     #[test]
     fn eval_ord_loss() {
-        assert!(Eval::new(Result::Loss, 5) == Eval::new(Result::Loss, 5));
-        assert!(Eval::new(Result::Loss, 5) > Eval::new(Result::Loss, 3));
-        assert!(Eval::new(Result::Loss, 5) < Eval::new(Result::Loss, 7));
+        assert!(Eval::from(Result::Loss, 5) == Eval::from(Result::Loss, 5));
+        assert!(Eval::from(Result::Loss, 5) > Eval::from(Result::Loss, 3));
+        assert!(Eval::from(Result::Loss, 5) < Eval::from(Result::Loss, 7));
 
-        assert!(Eval::new(Result::Loss, 5) < Eval::new(Result::Win, 5));
-        assert!(Eval::new(Result::Loss, 5) < Eval::new(Result::Win, 3));
-        assert!(Eval::new(Result::Loss, 5) < Eval::new(Result::Win, 7));
+        assert!(Eval::from(Result::Loss, 5) < Eval::from(Result::Win, 5));
+        assert!(Eval::from(Result::Loss, 5) < Eval::from(Result::Win, 3));
+        assert!(Eval::from(Result::Loss, 5) < Eval::from(Result::Win, 7));
 
-        assert!(Eval::new(Result::Loss, 5) < Eval::new(Result::Draw, 5));
-        assert!(Eval::new(Result::Loss, 5) < Eval::new(Result::Draw, 3));
-        assert!(Eval::new(Result::Loss, 5) < Eval::new(Result::Draw, 7));
+        assert!(Eval::from(Result::Loss, 5) < Eval::from(Result::Draw, 5));
+        assert!(Eval::from(Result::Loss, 5) < Eval::from(Result::Draw, 3));
+        assert!(Eval::from(Result::Loss, 5) < Eval::from(Result::Draw, 7));
+    }
+
+    #[test]
+    fn eval_ord_draw_good() {
+        assert!(Eval::from(Result::Draw, 5) == Eval::from(Result::Draw, 5));
+        assert!(Eval::from(Result::Draw, 5) > Eval::from(Result::Draw, 3));
+        assert!(Eval::from(Result::Draw, 5) < Eval::from(Result::Draw, 7));
+
+        assert!(Eval::from(Result::Draw, 5) < Eval::from(Result::Win, 5));
+        assert!(Eval::from(Result::Draw, 5) < Eval::from(Result::Win, 3));
+        assert!(Eval::from(Result::Draw, 5) < Eval::from(Result::Win, 7));
+
+        assert!(Eval::from(Result::Draw, 5) > Eval::from(Result::Loss, 5));
+        assert!(Eval::from(Result::Draw, 5) > Eval::from(Result::Loss, 3));
+        assert!(Eval::from(Result::Draw, 5) > Eval::from(Result::Loss, 7));
+
+        assert!(Eval::from(Result::Draw, 41) >= Eval::from(Result::Draw, 41));
+        assert!(Eval::from(Result::Draw, 41) <= Eval::from(Result::Draw, 41));
+    }
+
+    #[test]
+    fn eval_ord_draw_bad() {
+        assert!(-Eval::from(Result::Draw, 5) == -Eval::from(Result::Draw, 5));
+        assert!(-Eval::from(Result::Draw, 5) < -Eval::from(Result::Draw, 3));
+        assert!(-Eval::from(Result::Draw, 5) > -Eval::from(Result::Draw, 7));
+
+        assert!(-Eval::from(Result::Draw, 5) < Eval::from(Result::Win, 5));
+        assert!(-Eval::from(Result::Draw, 5) < Eval::from(Result::Win, 3));
+        assert!(-Eval::from(Result::Draw, 5) < Eval::from(Result::Win, 7));
+
+        assert!(-Eval::from(Result::Draw, 5) > Eval::from(Result::Loss, 5));
+        assert!(-Eval::from(Result::Draw, 5) > Eval::from(Result::Loss, 3));
+        assert!(-Eval::from(Result::Draw, 5) > Eval::from(Result::Loss, 7));
+
+        assert!(-Eval::from(Result::Draw, 41) <= -Eval::from(Result::Draw, 41));
+        assert!(-Eval::from(Result::Draw, 41) >= -Eval::from(Result::Draw, 41));
+    }
+
+    #[test]
+    fn eval_ord_draw_both() {
+        assert!(-Eval::from(Result::Draw, 5) < Eval::from(Result::Draw, 5));
+        assert!(-Eval::from(Result::Draw, 5) < Eval::from(Result::Draw, 3));
+        assert!(-Eval::from(Result::Draw, 5) < Eval::from(Result::Draw, 7));
     }
 
     #[test]
     fn eval_display() {
-        assert_eq!(format!("{}", Eval::new(Result::Loss, 25)), "loss in 25");
-        assert_eq!(format!("{}", Eval::new(Result::Draw, 0)), "draw in 0");
-        assert_eq!(format!("{}", Eval::new(Result::Win, 255)), "win in 255");
+        assert_eq!(format!("{}", Eval::from(Result::Loss, 25)), "loss in 25");
+        assert_eq!(format!("{}", Eval::from(Result::Draw, 0)), "draw in 0");
+        assert_eq!(format!("{}", Eval::new(-5)), "draw in -5");
+        assert_eq!(format!("{}", Eval::from(Result::Win, 69)), "win in 69");
     }
 }

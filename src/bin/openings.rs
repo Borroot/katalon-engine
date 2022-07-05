@@ -2,7 +2,7 @@ use katalon::board;
 use std::collections::HashSet;
 
 fn main() {
-    for depth in 0..=15 {
+    for depth in 0..=7 {
         stats(depth);
     }
 }
@@ -10,6 +10,9 @@ fn main() {
 /// Go through all the unique states of the board till the given depth and add
 /// them to the hashset.
 fn backtrack(board: board::Board, depth: usize, states: &mut HashSet<u64>) {
+    if board.takestreak() > 0 {
+        panic!();
+    }
     if depth == 0 {
         return;
     }
