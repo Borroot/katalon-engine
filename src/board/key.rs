@@ -45,6 +45,7 @@ impl super::Board {
     pub fn key(&self) -> u64 {
         debug_assert!(self.lastmove != None); // TODO make sure this never happens
 
+        // TODO add onturn to the key again
         // 8 bytes takestreak + 6 bytes lastmove + 25 bytes mask + 25 bytes state
         let mut key: u64 = 0;
 

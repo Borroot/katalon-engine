@@ -87,47 +87,48 @@ pub fn bestmoves(
 
     // TODO add parallelization
     // TODO add iterative deepening and null window search
-    for &(square, cell) in &moves {
-        let mut child = node.clone();
-        child.play(square, cell);
+    //for &(square, cell) in &moves {
+    //    let mut child = node.clone();
+    //    child.play(square, cell);
 
-        let alpha = eval::Eval::MIN;
-        let beta = eval::Eval::MAX;
+    //    let alpha = eval::Eval::MIN;
+    //    let beta = eval::Eval::MAX;
 
-        // TODO reuse improved alpha (beta does not change here)
-        let value = negamax(&child, alpha, beta, &mut minmax);
+    //    // TODO reuse improved alpha (beta does not change here)
+    //    let value = negamax(&child, alpha, beta, &mut minmax);
 
-        if value.is_err() {
-            minmax.stats.table = minmax.table.stats();
-            minmax.stats.time = now.elapsed();
+    //    if value.is_err() {
+    //        minmax.stats.table = minmax.table.stats();
+    //        minmax.stats.time = now.elapsed();
 
-            return (Err(()), minmax.stats);
-        }
+    //        return (Err(()), minmax.stats);
+    //    }
 
-        let value = -value.unwrap();
-        if value > max {
-            max = value;
-            bestmoves.clear();
-            bestmoves.push((square, cell));
-        } else if value == max {
-            bestmoves.push((square, cell));
-        }
-    }
+    //    let value = -value.unwrap();
+    //    if value > max {
+    //        max = value;
+    //        bestmoves.clear();
+    //        bestmoves.push((square, cell));
+    //    } else if value == max {
+    //        bestmoves.push((square, cell));
+    //    }
+    //}
 
     minmax.stats.table = minmax.table.stats();
     minmax.stats.time = now.elapsed();
 
+    // reset table and time
     let now = std::time::Instant::now();
-
-    // reset table
-    minmax.table = table::Table::from_gb(1.0);
+    minmax.table = table::Table::from_gb(16.0);
     println!("------------------------------------------------------ {}ms", now.elapsed().as_millis());
 
-    let mut wmin = eval::Eval::MIN.n;
     let mut wmax = eval::Eval::MAX.n;
+    let mut wmin = eval::Eval::MIN.n;
     let mut med = 0;
+    let mut count = 0;
 
     loop {
+        count += 1;
         med = (wmin + wmax) / 2;
 
         let r = negamax(&node, eval::Eval::new(med - 1), eval::Eval::new(med + 1), &mut minmax);
@@ -145,12 +146,46 @@ pub fn bestmoves(
             break;
         } else if r < med {
             wmax = r;
-        } else /* r >= med */ {
+        } else {
             wmin = r;
         }
     }
-    println!("med = {}", med);
+    println!("med = {}, loops = {}", med, count);
     println!("evaluation: {}, {}ms", eval::Eval::new(med), now.elapsed().as_millis());
+
+    //// reset table and time
+    //let now = std::time::Instant::now();
+    //minmax.table = table::Table::from_gb(1.0);
+    //println!("------------------------------------------------------ {}ms", now.elapsed().as_millis());
+
+    //let mut wmax = eval::Eval::MAX.n;
+    //let mut wmin = eval::Eval::MIN.n;
+    //let mut guess = 0;
+    //let mut count = 0;
+
+    //while wmin < wmax {
+    //    count += 1;
+    //    let beta = std::cmp::max(guess, wmin + 1);
+
+    //    let tmp_guess = negamax(&node, eval::Eval::new(beta - 1), eval::Eval::new(beta), &mut minmax);
+    //    if tmp_guess.is_err() {
+    //        println!("TIMEOUT");
+    //        break;
+    //    }
+    //    guess = tmp_guess.unwrap().n;
+
+    //    //println!("------------------------------------------------------ {}ms", now.elapsed().as_millis());
+    //    //println!("min = {}, max = {}, g = {}", wmin, wmax, guess);
+    //    //println!("min = {}, max = {}, g = {}", eval::Eval::new(wmin), eval::Eval::new(wmax), eval::Eval::new(guess));
+
+    //    if guess < beta {
+    //        wmax = guess;
+    //    } else {
+    //        wmin = guess;
+    //    }
+    //}
+    //println!("guess = {}, loops = {}", guess, count);
+    //println!("evaluation: {}, {}ms", eval::Eval::new(guess), now.elapsed().as_millis());
 
     (Ok((max, bestmoves)), minmax.stats)
 }
@@ -258,46 +293,52 @@ fn negamax(
     }
 
     //if let Some(mut entry) = minmax.table.get(node.key())  {
-    //    let table_value = entry.value.absolute(minmax.rootcount, node.movecount());
-    //    let table_value_original = entry.value.absolute(minmax.rootcount, entry.movecount);
+    //    if let (eval::Result::Draw, distance) = entry.value.human() {
+    //    if !((distance > 0 && node.onturn() != minmax.rootplayer) ||
+    //         (distance < 0 && node.onturn() == minmax.rootplayer))
+    //    {
+    //        let table_value = entry.value.absolute(minmax.rootcount, node.movecount());
+    //        let table_value_original = entry.value.absolute(minmax.rootcount, entry.movecount);
 
-    //    if alpha_original < best && best < beta && alpha_original < table_value && table_value < beta {
-    //        match entry.flag {
-    //            table::Flag::EXACT if best != table_value => {
-    //                minmax.stats.correct = false;
-    //                print!("\nboard: \n{}", node);
-    //                println!("invalid exact");
-    //                println!("actual value: {}, != table_value: {}", best, table_value);
-    //                println!("entry.value: {}, table_value_original {}", entry.value, table_value_original);
-    //                println!("alpha old: {}, alpha: {}, beta: {}", alpha_original, alpha, beta);
-    //                println!("entry.alpha: {}, entry.beta: {}", entry.alpha, entry.beta);
-    //                println!("movecount: {}, entry.movecount: {}, rootcount: {}", node.movecount(), entry.movecount, minmax.rootcount);
-    //                println!("takestreak: {}, square: {}, onturn: {}", node.takestreak(), node.square().unwrap(), node.onturn());
+    //        if alpha_original < best && best < beta && alpha_original < table_value && table_value < beta {
+    //            match entry.flag {
+    //                table::Flag::EXACT if best != table_value => {
+    //                    minmax.stats.correct = false;
+    //                    print!("\nboard: \n{}", node);
+    //                    println!("invalid exact");
+    //                    println!("actual value: {}, != table_value: {}", best, table_value);
+    //                    println!("entry.value: {}, table_value_original {}", entry.value, table_value_original);
+    //                    println!("alpha old: {}, alpha: {}, beta: {}", alpha_original, alpha, beta);
+    //                    println!("entry.alpha: {}, entry.beta: {}", entry.alpha, entry.beta);
+    //                    println!("movecount: {}, entry.movecount: {}, rootcount: {}", node.movecount(), entry.movecount, minmax.rootcount);
+    //                    println!("takestreak: {}, square: {}, onturn: {}", node.takestreak(), node.square().unwrap(), node.onturn());
+    //                }
+    //                table::Flag::LOWERBOUND if best < table_value => {
+    //                    minmax.stats.correct = false;
+    //                    print!("\nboard: \n{}", node);
+    //                    println!("invalid lowerbound");
+    //                    println!("actual value: {}, < table_value: {}", best, table_value);
+    //                    println!("entry.value: {}, table_value_original {}", entry.value, table_value_original);
+    //                    println!("alpha old: {}, alpha: {}, beta: {}", alpha_original, alpha, beta);
+    //                    println!("entry.alpha: {}, entry.beta: {}", entry.alpha, entry.beta);
+    //                    println!("movecount: {}, entry.movecount: {}, rootcount: {}", node.movecount(), entry.movecount, minmax.rootcount);
+    //                    println!("takestreak: {}, square: {}, onturn: {}", node.takestreak(), node.square().unwrap(), node.onturn());
+    //                }
+    //                table::Flag::UPPERBOUND if best > table_value => {
+    //                    minmax.stats.correct = false;
+    //                    print!("\nboard: \n{}", node);
+    //                    println!("invalid upperbound");
+    //                    println!("actual value: {}, > table_value: {}", best, table_value);
+    //                    println!("entry.value: {}, table_value_original {}", entry.value, table_value_original);
+    //                    println!("alpha old: {}, alpha: {}, beta: {}", alpha_original, alpha, beta);
+    //                    println!("entry.alpha: {}, entry.beta: {}", entry.alpha, entry.beta);
+    //                    println!("movecount: {}, entry.movecount: {}, rootcount: {}", node.movecount(), entry.movecount, minmax.rootcount);
+    //                    println!("takestreak: {}, square: {}, onturn: {}", node.takestreak(), node.square().unwrap(), node.onturn());
+    //                }
+    //                _ => (),
     //            }
-    //            table::Flag::LOWERBOUND if best < table_value => {
-    //                minmax.stats.correct = false;
-    //                print!("\nboard: \n{}", node);
-    //                println!("invalid lowerbound");
-    //                println!("actual value: {}, < table_value: {}", best, table_value);
-    //                println!("entry.value: {}, table_value_original {}", entry.value, table_value_original);
-    //                println!("alpha old: {}, alpha: {}, beta: {}", alpha_original, alpha, beta);
-    //                println!("entry.alpha: {}, entry.beta: {}", entry.alpha, entry.beta);
-    //                println!("movecount: {}, entry.movecount: {}, rootcount: {}", node.movecount(), entry.movecount, minmax.rootcount);
-    //                println!("takestreak: {}, square: {}, onturn: {}", node.takestreak(), node.square().unwrap(), node.onturn());
-    //            }
-    //            table::Flag::UPPERBOUND if best > table_value => {
-    //                minmax.stats.correct = false;
-    //                print!("\nboard: \n{}", node);
-    //                println!("invalid upperbound");
-    //                println!("actual value: {}, > table_value: {}", best, table_value);
-    //                println!("entry.value: {}, table_value_original {}", entry.value, table_value_original);
-    //                println!("alpha old: {}, alpha: {}, beta: {}", alpha_original, alpha, beta);
-    //                println!("entry.alpha: {}, entry.beta: {}", entry.alpha, entry.beta);
-    //                println!("movecount: {}, entry.movecount: {}, rootcount: {}", node.movecount(), entry.movecount, minmax.rootcount);
-    //                println!("takestreak: {}, square: {}, onturn: {}", node.takestreak(), node.square().unwrap(), node.onturn());
-    //            }
-    //            _ => (),
     //        }
+    //    }
     //    }
     //}
 
