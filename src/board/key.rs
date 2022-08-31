@@ -20,10 +20,15 @@ impl super::Board {
 
     /// Indiciate whether the square of the lastmove should be in the key.
     /// This is the case if the square we need to move into next is full.
+    // TODO test whether it is more efficient to just always include the square
     fn lastmove_square(&self) -> bool {
-        let (_square, cell) = self.lastmove.unwrap();
-        let mask_square = 0b11111 << cell * 5;
-        return self.mask & mask_square == mask_square;
+        match self.lastmove {
+            None => false,
+            Some((_, cell)) => {
+                let mask_square = 0b11111 << cell * 5;
+                return self.mask & mask_square == mask_square;
+            }
+        }
     }
 
     /// Map the state or mask to the given symmetry.

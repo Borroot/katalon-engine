@@ -33,7 +33,8 @@ pub struct Eval {
     ///  L in 0           L in ML D in ML        D in 0       D in ML W in ML           W in 0
     ///    |                |        |             |            |        |                 |
     ///  -2ML-1           -ML-1     -ML            0            ML      ML+1             2ML+1
-    n: i16,
+    // TODO remove pub
+    pub n: i16,
 }
 
 impl Eval {
@@ -44,7 +45,7 @@ impl Eval {
     pub const MAX: Self = Self::new(2 * board::Board::MOVECOUNT_LIMIT + 1);
 
     /// Create an evaluation from the given internal representational value.
-    const fn new(n: i16) -> Self {
+    pub const fn new(n: i16) -> Self {
         Self { n }
     }
 

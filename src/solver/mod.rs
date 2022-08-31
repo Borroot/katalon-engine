@@ -18,6 +18,7 @@ impl player::Player for Solver {
 // TODO add a function which evaluates all the moves
 
 /// Return all of the best moves if finished within the specified time with stats.
+// TODO make this function asynchronous so the user can also terminate the function
 pub fn bestmoves_with_stats(
     node: &board::Board,
     timeout: std::time::Duration,

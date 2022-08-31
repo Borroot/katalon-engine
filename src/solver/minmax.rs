@@ -67,12 +67,14 @@ pub fn bestmoves(
     node: &board::Board,
     recv_timeout: std::sync::mpsc::Receiver<()>,
 ) -> (Result<(eval::Eval, Vec<(u8, u8)>), ()>, Stats) {
+    // TODO give without evaluation, so if there is just one possible move we can immediately return
     let now = std::time::Instant::now();
 
     let mut minmax = Minmax {
         recv_timeout,
         rootcount: node.movecount(),
         rootplayer: node.onturn(),
+        // TODO make adaptive to the movecount
         table: table::Table::from_gb(1.0),
         stats: Stats::new(),
     };
@@ -85,12 +87,16 @@ pub fn bestmoves(
 
     // TODO add parallelization
     // TODO add iterative deepening and null window search
-    for (square, cell) in moves {
+    for &(square, cell) in &moves {
         let mut child = node.clone();
         child.play(square, cell);
 
+        let alpha = eval::Eval::MIN;
+        let beta = eval::Eval::MAX;
+
         // TODO reuse improved alpha (beta does not change here)
-        let value = negamax(&child, eval::Eval::MIN, eval::Eval::MAX, &mut minmax);
+        let value = negamax(&child, alpha, beta, &mut minmax);
+
         if value.is_err() {
             minmax.stats.table = minmax.table.stats();
             minmax.stats.time = now.elapsed();
@@ -110,6 +116,41 @@ pub fn bestmoves(
 
     minmax.stats.table = minmax.table.stats();
     minmax.stats.time = now.elapsed();
+
+    let now = std::time::Instant::now();
+
+    // reset table
+    minmax.table = table::Table::from_gb(1.0);
+    println!("------------------------------------------------------ {}ms", now.elapsed().as_millis());
+
+    let mut wmin = eval::Eval::MIN.n;
+    let mut wmax = eval::Eval::MAX.n;
+    let mut med = 0;
+
+    loop {
+        med = (wmin + wmax) / 2;
+
+        let r = negamax(&node, eval::Eval::new(med - 1), eval::Eval::new(med + 1), &mut minmax);
+        if r.is_err() {
+            println!("TIMEOUT");
+            break;
+        }
+        let r = r.unwrap().n;
+
+        println!("------------------------------------------------------ {}ms", now.elapsed().as_millis());
+        println!("min = {}, med = {}, max = {}, r = {}", wmin, med, wmax, r);
+        println!("min = {}, med = {}, max = {}, r = {}", eval::Eval::new(wmin), eval::Eval::new(med), eval::Eval::new(wmax), eval::Eval::new(r));
+
+        if med == r {
+            break;
+        } else if r < med {
+            wmax = r;
+        } else /* r >= med */ {
+            wmin = r;
+        }
+    }
+    println!("med = {}", med);
+    println!("evaluation: {}, {}ms", eval::Eval::new(med), now.elapsed().as_millis());
 
     (Ok((max, bestmoves)), minmax.stats)
 }
@@ -150,6 +191,7 @@ fn negamax(
     let recv = minmax.recv_timeout.try_recv();
     if recv.is_ok() || recv == Err(std::sync::mpsc::TryRecvError::Disconnected) {
         minmax.stats.timeout = true;
+        // TODO maybe return min or max depending on the player, this way we return the current best estimate
         return Err(());
     }
 
@@ -159,23 +201,27 @@ fn negamax(
     // Check if we have already seen this node before.
     // TODO also check symmetries if depth is low.
     if let Some(mut entry) = minmax.table.get(node.key()) {
+        // FIXME if the entry is from the perspective of the other player AND a draw then the result is not valid,
+        // because one player tries to postpone a draw while the other one does not do this
+
+        // TODO put this code below in the absolute function and rename that function, e.g. from_table()
         if let (eval::Result::Draw, distance) = entry.value.human() {
-            if (distance > 0 && node.onturn() != minmax.rootplayer) ||
-               (distance < 0 && node.onturn() == minmax.rootplayer)
+            if !((distance > 0 && node.onturn() != minmax.rootplayer) ||
+                 (distance < 0 && node.onturn() == minmax.rootplayer))
             {
-                entry.value = -entry.value;
+                //entry.value = -entry.value; WRONG
+
+                let table_value = entry.value.absolute(minmax.rootcount, node.movecount());
+
+                match entry.flag {
+                    table::Flag::EXACT => return Ok(table_value),
+                    table::Flag::LOWERBOUND => alpha = std::cmp::max(alpha, table_value),
+                    table::Flag::UPPERBOUND => beta = std::cmp::min(beta, table_value),
+                }
+                if alpha >= beta {
+                    return Ok(table_value);
+                }
             }
-        }
-
-        let table_value = entry.value.absolute(minmax.rootcount, node.movecount());
-
-        match entry.flag {
-            table::Flag::EXACT => return Ok(table_value),
-            table::Flag::LOWERBOUND => alpha = std::cmp::max(alpha, table_value),
-            table::Flag::UPPERBOUND => beta = std::cmp::min(beta, table_value),
-        }
-        if alpha >= beta {
-            return Ok(table_value);
         }
     }
 
@@ -211,57 +257,49 @@ fn negamax(
         }
     }
 
-    if let Some(mut entry) = minmax.table.get(node.key())  {
-        if let (eval::Result::Draw, distance) = entry.value.human() {
-            if (distance > 0 && node.onturn() != minmax.rootplayer) ||
-               (distance < 0 && node.onturn() == minmax.rootplayer)
-            {
-                entry.value = -entry.value;
-            }
-        }
+    //if let Some(mut entry) = minmax.table.get(node.key())  {
+    //    let table_value = entry.value.absolute(minmax.rootcount, node.movecount());
+    //    let table_value_original = entry.value.absolute(minmax.rootcount, entry.movecount);
 
-        let table_value = entry.value.absolute(minmax.rootcount, node.movecount());
-        let table_value_original = entry.value.absolute(minmax.rootcount, entry.movecount);
-
-        if alpha_original < best && best < beta && alpha_original < table_value && table_value < beta {
-            match entry.flag {
-                table::Flag::EXACT if best != table_value => {
-                    minmax.stats.correct = false;
-                    print!("\nboard: \n{}", node);
-                    println!("invalid exact");
-                    println!("actual value: {}, != table_value: {}", best, table_value);
-                    println!("entry.value: {}, table_value_original {}", entry.value, table_value_original);
-                    println!("alpha old: {}, alpha: {}, beta: {}", alpha_original, alpha, beta);
-                    println!("entry.alpha: {}, entry.beta: {}", entry.alpha, entry.beta);
-                    println!("movecount: {}, entry.movecount: {}, rootcount: {}", node.movecount(), entry.movecount, minmax.rootcount);
-                    println!("takestreak: {}, square: {}, onturn: {}", node.takestreak(), node.square().unwrap(), node.onturn());
-                }
-                table::Flag::LOWERBOUND if best < table_value => {
-                    minmax.stats.correct = false;
-                    print!("\nboard: \n{}", node);
-                    println!("invalid lowerbound");
-                    println!("actual value: {}, < table_value: {}", best, table_value);
-                    println!("entry.value: {}, table_value_original {}", entry.value, table_value_original);
-                    println!("alpha old: {}, alpha: {}, beta: {}", alpha_original, alpha, beta);
-                    println!("entry.alpha: {}, entry.beta: {}", entry.alpha, entry.beta);
-                    println!("movecount: {}, entry.movecount: {}, rootcount: {}", node.movecount(), entry.movecount, minmax.rootcount);
-                    println!("takestreak: {}, square: {}, onturn: {}", node.takestreak(), node.square().unwrap(), node.onturn());
-                }
-                table::Flag::UPPERBOUND if best > table_value => {
-                    minmax.stats.correct = false;
-                    print!("\nboard: \n{}", node);
-                    println!("invalid upperbound");
-                    println!("actual value: {}, > table_value: {}", best, table_value);
-                    println!("entry.value: {}, table_value_original {}", entry.value, table_value_original);
-                    println!("alpha old: {}, alpha: {}, beta: {}", alpha_original, alpha, beta);
-                    println!("entry.alpha: {}, entry.beta: {}", entry.alpha, entry.beta);
-                    println!("movecount: {}, entry.movecount: {}, rootcount: {}", node.movecount(), entry.movecount, minmax.rootcount);
-                    println!("takestreak: {}, square: {}, onturn: {}", node.takestreak(), node.square().unwrap(), node.onturn());
-                }
-                _ => (),
-            }
-        }
-    }
+    //    if alpha_original < best && best < beta && alpha_original < table_value && table_value < beta {
+    //        match entry.flag {
+    //            table::Flag::EXACT if best != table_value => {
+    //                minmax.stats.correct = false;
+    //                print!("\nboard: \n{}", node);
+    //                println!("invalid exact");
+    //                println!("actual value: {}, != table_value: {}", best, table_value);
+    //                println!("entry.value: {}, table_value_original {}", entry.value, table_value_original);
+    //                println!("alpha old: {}, alpha: {}, beta: {}", alpha_original, alpha, beta);
+    //                println!("entry.alpha: {}, entry.beta: {}", entry.alpha, entry.beta);
+    //                println!("movecount: {}, entry.movecount: {}, rootcount: {}", node.movecount(), entry.movecount, minmax.rootcount);
+    //                println!("takestreak: {}, square: {}, onturn: {}", node.takestreak(), node.square().unwrap(), node.onturn());
+    //            }
+    //            table::Flag::LOWERBOUND if best < table_value => {
+    //                minmax.stats.correct = false;
+    //                print!("\nboard: \n{}", node);
+    //                println!("invalid lowerbound");
+    //                println!("actual value: {}, < table_value: {}", best, table_value);
+    //                println!("entry.value: {}, table_value_original {}", entry.value, table_value_original);
+    //                println!("alpha old: {}, alpha: {}, beta: {}", alpha_original, alpha, beta);
+    //                println!("entry.alpha: {}, entry.beta: {}", entry.alpha, entry.beta);
+    //                println!("movecount: {}, entry.movecount: {}, rootcount: {}", node.movecount(), entry.movecount, minmax.rootcount);
+    //                println!("takestreak: {}, square: {}, onturn: {}", node.takestreak(), node.square().unwrap(), node.onturn());
+    //            }
+    //            table::Flag::UPPERBOUND if best > table_value => {
+    //                minmax.stats.correct = false;
+    //                print!("\nboard: \n{}", node);
+    //                println!("invalid upperbound");
+    //                println!("actual value: {}, > table_value: {}", best, table_value);
+    //                println!("entry.value: {}, table_value_original {}", entry.value, table_value_original);
+    //                println!("alpha old: {}, alpha: {}, beta: {}", alpha_original, alpha, beta);
+    //                println!("entry.alpha: {}, entry.beta: {}", entry.alpha, entry.beta);
+    //                println!("movecount: {}, entry.movecount: {}, rootcount: {}", node.movecount(), entry.movecount, minmax.rootcount);
+    //                println!("takestreak: {}, square: {}, onturn: {}", node.takestreak(), node.square().unwrap(), node.onturn());
+    //            }
+    //            _ => (),
+    //        }
+    //    }
+    //}
 
     let flag = {
         if best <= alpha_original {

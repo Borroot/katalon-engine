@@ -129,6 +129,7 @@ impl Table {
             beta,
             movecount,
         };
+        // TODO add collision resolution
         let index = self.index(entry.key);
         self.table[index] = Some(entry);
     }
