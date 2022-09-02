@@ -16,7 +16,7 @@ pub fn eval_with_stats(
 
     std::thread::spawn(move || {
         send_result
-            .send(eval_plain(&node_clone, recv_timeout))
+            .send(eval_mtdf(&node_clone, recv_timeout))
             .expect("Could not send result.");
     });
 

@@ -11,3 +11,10 @@ Search functions
 4. 3. + killer moves
 5. 4. + move sorting (prefer nonfull squares)
 6. 5. + symmetry checking at low depths
+7. 6. + opening table
+
+Opening table
+- Up to depth 10 there are 269810 unique states.
+- Solving one of these takes approximately 130 / 200 = 0.65 seconds.
+- So saving all the evaluations for these states takes about (269810 * 0.65) / 3600 = 48 hours.
+- Up to depth 9 can now easily be determined by using the available information on depth 10.

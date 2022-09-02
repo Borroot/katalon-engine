@@ -40,8 +40,8 @@ fn generate(depth: usize) -> (board::Board, String) {
 
 /// Try to evaluate the board within the given timelimit.
 fn evaluate(board: &board::Board, timeout: &std::time::Duration) -> Result<(eval::Eval, u128), ()> {
-    match solver::bestmoves_with_stats(&board, *timeout) {
-        (Ok((eval, _)), stats) => {
+    match solver::eval_with_stats(&board, *timeout) {
+        (Ok(eval), stats) => {
             return Ok((eval, stats.time.as_millis()));
         }
         (Err(_), _) => return Err(()),
@@ -50,7 +50,7 @@ fn evaluate(board: &board::Board, timeout: &std::time::Duration) -> Result<(eval
 
 /// Used to generate boards with results for benchmarking.
 fn main() {
-    let timeout = std::time::Duration::from_secs(5);
+    let timeout = std::time::Duration::from_secs(60);
     let depth = 25;
 
     let mut count = 0;
@@ -61,13 +61,10 @@ fn main() {
 
         let (board, notation) = generate(depth);
         if let Ok((eval, _time)) = evaluate(&board, &timeout) {
-            //println!("{}, {}, {}ms", notation, eval, _time);
-            //if eval.distance > 2 && eval.distance < 6 {
-            println!("{} {}", notation, eval);
-            count += 1;
+            //if eval.distance() > 2 && eval.distance() < 30 {
+                println!("{} {}", notation, eval);
+                count += 1;
             //}
-        } else {
-            //println!("{}, timeout", notation);
         }
     }
 }

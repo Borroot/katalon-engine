@@ -77,6 +77,17 @@ impl Eval {
         }
     }
 
+    /// Give the distance of the evaluation.
+    pub fn distance(&self) -> i16 {
+        if self.n > board::Board::MOVECOUNT_LIMIT {
+            2 * board::Board::MOVECOUNT_LIMIT + 1 - self.n
+        } else if self.n < -board::Board::MOVECOUNT_LIMIT {
+            2 * board::Board::MOVECOUNT_LIMIT + 1 + self.n
+        } else {
+            self.n
+        }
+    }
+
     /// Convert the evaluation to a human readable form returning (result, distance).
     /// Be aware that the distance can be negative if the result is a draw.
     pub fn human(&self) -> (Result, i16) {
