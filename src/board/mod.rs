@@ -55,14 +55,15 @@ pub struct Board {
     /// Keeps how many turns in a row pieces have been taken.
     takestreak: u8,
 
-    // This is an i16 because this make eval::Eval more efficient.
     /// The number of moves that have been made.
+    // This is an i16 because this make eval::Eval more efficient.
     movecount: i16,
 }
 
 impl Board {
     /// The maximum number of takes that are allowed to be made in a row.
-    pub const TAKESTREAK_LIMIT: u8 = 15;
+    // Make sure this number fits in 7 bits so it fits in the key.
+    pub const TAKESTREAK_LIMIT: u8 = 15; // <= 127
 
     /// An upperbound on the maximum number of moves that can be made in a game.
     pub const MOVECOUNT_LIMIT: i16 = (21 - 7) * Self::TAKESTREAK_LIMIT as i16;

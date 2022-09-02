@@ -22,13 +22,9 @@ impl super::Board {
     /// This is the case if the square we need to move into next is full.
     // TODO test whether it is more efficient to just always include the square
     fn lastmove_square(&self) -> bool {
-        match self.lastmove {
-            None => false,
-            Some((_, cell)) => {
-                let mask_square = 0b11111 << cell * 5;
-                return self.mask & mask_square == mask_square;
-            }
-        }
+        let (_, cell) = self.lastmove.unwrap();
+        let mask_square = 0b11111 << cell * 5;
+        return self.mask & mask_square == mask_square;
     }
 
     /// Map the state or mask to the given symmetry.
@@ -43,21 +39,22 @@ impl super::Board {
 
     /// Return a u64 uniquely identifying this state of the board.
     pub fn key(&self) -> u64 {
-        debug_assert!(self.lastmove != None); // TODO make sure this never happens
-
-        // TODO add onturn to the key again
-        // 8 bytes takestreak + 6 bytes lastmove + 25 bytes mask + 25 bytes state
+        // 1 bit onturn + 7 bits takestreak + 6 bits lastmove + 25 bits mask + 25 bits state
         let mut key: u64 = 0;
 
-        // Add the takestreak.
+        // The board is completely empty (so lastmove == None).
+        if self.isfirst() {
+            return key;
+        }
+
+        // Add the player onturn and the takestreak.
+        key += (self.onturn as u64) << 63;
         key += (self.takestreak as u64) << 56;
 
         // Add the lastmove to the key.
-        if self.lastmove != None {
-            key += (self.lastmove.unwrap().1 as u64) << 50; // add the cell
-            if self.lastmove_square() {
-                key += (self.lastmove.unwrap().0 as u64) << 53; // add the square
-            }
+        key += (self.lastmove.unwrap().1 as u64) << 50; // add the cell
+        if self.lastmove_square() {
+            key += (self.lastmove.unwrap().0 as u64) << 53; // add the square
         }
 
         // Add the mask and the state.
@@ -68,34 +65,35 @@ impl super::Board {
     }
 
     /// Return all u64 uniquely identifying this equivalence class of the board.
+    // TODO convert this to an iterator implementation
     pub fn keys(&self) -> [u64; 8] {
-        debug_assert!(self.lastmove != None); // TODO make sure this never happens
-                                              // TODO convert this to an iterator implementation
-
         let mut keys: [u64; 8] = [0; 8];
-        keys[0] = self.key();
 
+        // The board is completely empty (so lastmove == None).
+        if self.isfirst() {
+            return keys;
+        }
+
+        keys[0] = self.key();
         let lastmove_square = self.lastmove_square();
 
         // Generate the keys for all the symmetries.
         for index in 0..7 {
-            // Add the takestreak.
+            // Add the player onturn and the takestreak.
+            keys[index + 1] += (self.onturn as u64) << 63;
             keys[index + 1] += (self.takestreak as u64) << 56;
 
-            // Add the lastmove to the key.
-            if self.lastmove != None {
-                // Create the lastmove symmetry.
-                let lastmove_index = self.lastmove.unwrap().0 * 5 + self.lastmove.unwrap().1;
-                let lastmove_symmetry = (
-                    Self::SYMMETRIES[index][lastmove_index as usize] / 5,
-                    Self::SYMMETRIES[index][lastmove_index as usize] % 5,
-                );
+            // Add the lastmove to the key. Create the lastmove symmetry.
+            let lastmove_index = self.lastmove.unwrap().0 * 5 + self.lastmove.unwrap().1;
+            let lastmove_symmetry = (
+                Self::SYMMETRIES[index][lastmove_index as usize] / 5,
+                Self::SYMMETRIES[index][lastmove_index as usize] % 5,
+            );
 
-                // Add the cell and the square to the key.
-                keys[index + 1] += (lastmove_symmetry.1 as u64) << 50; // cell
-                if lastmove_square {
-                    keys[index + 1] += (lastmove_symmetry.0 as u64) << 53; // square
-                }
+            // Add the cell and the square to the key.
+            keys[index + 1] += (lastmove_symmetry.1 as u64) << 50; // cell
+            if lastmove_square {
+                keys[index + 1] += (lastmove_symmetry.0 as u64) << 53; // square
             }
 
             // Add the mask and the state.
@@ -132,6 +130,14 @@ mod tests {
         assert_eq!(s1, Board::symmetry_map(v1, &Board::SYMMETRIES[5]))
     }
 
+
+    /// Test first move key generation.
+    #[test]
+    fn key_firstmove() {
+        let board = Board::new();
+        assert_eq!(board.key(), 0);
+    }
+
     /// Test single key generation.
     #[test]
     fn key() {
@@ -150,7 +156,7 @@ mod tests {
         let board3 = Board::load("2214002031011232").unwrap();
         assert_eq!(
             board3.key(),
-            0b00000000__011_010__00001_00110_11111_11111_11111__00001_00010_11010_01011_01100
+            0b10000000__011_010__00001_00110_11111_11111_11111__00001_00010_11010_01011_01100
         );
     }
 
@@ -188,29 +194,34 @@ mod tests {
 
         assert_eq!(
             keys3[0],
-            0b00000000__011_010__00001_00110_11111_11111_11111__00001_00010_11010_01011_01100
+            0b10000000__011_010__00001_00110_11111_11111_11111__00001_00010_11010_01011_01100
         );
 
         assert_eq!(
             keys3[6],
-            0b00000000__001_010__11111_11111_11111_01100_10000__00110_11010_01011_01000_10000
+            0b10000000__001_010__11111_11111_11111_01100_10000__00110_11010_01011_01000_10000
         );
     }
 
     /// Test first move symmetry key generation.
     #[test]
     fn keys_firstmove() {
-        let board1 = Board::load("21").unwrap();
-        let keys1 = board1.keys();
+        let board1 = Board::new();
+        for key in board1.keys() {
+            assert_eq!(key, 0);
+        }
+
+        let board2 = Board::load("21").unwrap();
+        let keys2 = board2.keys();
 
         assert_eq!(
-            keys1[0],
-            0b00000000__000_001__00000_00000_00010_01000_00000__00000_00000_00000_00000_00000
+            keys2[0],
+            0b10000000__000_001__00000_00000_00010_01000_00000__00000_00000_00000_00000_00000
         );
 
         assert_eq!(
-            keys1[4],
-            0b00000000__000_000__00000_00000_00001_00000_10000__00000_00000_00000_00000_00000
+            keys2[4],
+            0b10000000__000_000__00000_00000_00001_00000_10000__00000_00000_00000_00000_00000
         );
     }
 }

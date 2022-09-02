@@ -1,4 +1,4 @@
-use crate::{board, eval, player};
+use crate::{board, eval, player, stats::search};
 use rand::Rng;
 
 mod minmax;
@@ -22,7 +22,7 @@ impl player::Player for Solver {
 pub fn bestmoves_with_stats(
     node: &board::Board,
     timeout: std::time::Duration,
-) -> (Result<(eval::Eval, Vec<(u8, u8)>), ()>, minmax::Stats) {
+) -> (Result<(eval::Eval, Vec<(u8, u8)>), ()>, search::Stats) {
     let (send_timeout, recv_timeout) = std::sync::mpsc::channel();
     let (send_result, recv_result) = std::sync::mpsc::channel();
 
