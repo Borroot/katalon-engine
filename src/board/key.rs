@@ -130,7 +130,6 @@ mod tests {
         assert_eq!(s1, Board::symmetry_map(v1, &Board::SYMMETRIES[5]))
     }
 
-
     /// Test first move key generation.
     #[test]
     fn key_firstmove() {

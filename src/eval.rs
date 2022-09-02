@@ -33,8 +33,7 @@ pub struct Eval {
     ///  L in 0           L in ML D in ML        D in 0       D in ML W in ML           W in 0
     ///    |                |        |             |            |        |                 |
     ///  -2ML-1           -ML-1     -ML            0            ML      ML+1             2ML+1
-    // TODO remove pub
-    pub n: i16,
+    n: i16,
 }
 
 impl Eval {
@@ -47,6 +46,11 @@ impl Eval {
     /// Create an evaluation from the given internal representational value.
     pub const fn new(n: i16) -> Self {
         Self { n }
+    }
+
+    /// Get the raw representation of this evaluation.
+    pub const fn raw(self) -> i16 {
+        self.n
     }
 
     /// Create an evaluation from the given result and distance.

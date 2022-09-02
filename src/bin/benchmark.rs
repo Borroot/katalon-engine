@@ -80,9 +80,9 @@ fn run_set(name: String, entries: Vec<Entry>) -> Result<Bench, ()> {
     println!("benchmarking {}", name);
     for (index, entry) in entries.iter().enumerate() {
         let (result, stats) =
-            solver::bestmoves_with_stats(&entry.board, std::time::Duration::from_secs(10));
+            solver::eval_with_stats(&entry.board, std::time::Duration::from_secs(10));
 
-        if let Ok((eval, _)) = result {
+        if let Ok(eval) = result {
             if eval != entry.eval {
                 println!(
                     "error in {}: wrong eval of {}, should be {}",
@@ -125,7 +125,7 @@ fn main() {
     //let variants = ["low", "high"];
     //let depths = [20, 10, 5];
     let variants = ["low"];
-    let depths = [10];
+    let depths = [10, 20];
 
     let mut benches = Vec::<Bench>::new();
     for depth in depths {
