@@ -32,10 +32,7 @@ pub fn eval_with_stats(
 }
 
 /// Evaluate the current board position.
-pub fn eval(
-    node: &board::Board,
-    timeout: std::time::Duration,
-) -> Result<eval::Eval, ()> {
+pub fn eval(node: &board::Board, timeout: std::time::Duration) -> Result<eval::Eval, ()> {
     eval_with_stats(node, timeout).0
 }
 

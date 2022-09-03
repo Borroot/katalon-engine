@@ -69,12 +69,8 @@ impl std::fmt::Display for Stats {
 
         write!(
             f,
-            concat!(
-                "states visited: {}\n",
-                "\n{}\n",
-            ),
-            self.visited,
-            self.table,
+            concat!("states visited: {}\n", "\n{}\n",),
+            self.visited, self.table,
         )
     }
 }

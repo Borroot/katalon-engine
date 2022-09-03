@@ -8,8 +8,8 @@ Search functions
 1. Pure negamax
 2. 1. + alpha beta pruning
 3. 2. + transposition table
-4. 3. + killer moves
-5. 4. + move sorting (prefer nonfull squares)
+4. 3. + bestmove table
+5. 4. + move sorting (prefer full squares)
 6. 5. + symmetry checking at low depths
 7. 6. + opening table
 

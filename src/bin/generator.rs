@@ -62,8 +62,8 @@ fn main() {
         let (board, notation) = generate(depth);
         if let Ok((eval, _time)) = evaluate(&board, &timeout) {
             //if eval.distance() > 2 && eval.distance() < 30 {
-                println!("{} {}", notation, eval);
-                count += 1;
+            println!("{} {}", notation, eval);
+            count += 1;
             //}
         }
     }

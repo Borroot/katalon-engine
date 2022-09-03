@@ -26,8 +26,6 @@ pub struct Entry {
     pub value: eval::Eval,
     /// Flag indicating what type of value this is.
     pub flag: Flag,
-    /// The bestmove that can be made from this position.
-    pub bestmove: u8,
 }
 
 impl Table {
@@ -60,13 +58,8 @@ impl Table {
     }
 
     /// Put a new value with a given key inside the table.
-    pub fn put(&mut self, key: u64, value: eval::Eval, flag: Flag, bestmove: u8) {
-        let entry = Entry {
-            key,
-            value,
-            flag,
-            bestmove,
-        };
+    pub fn put(&mut self, key: u64, value: eval::Eval, flag: Flag) {
+        let entry = Entry { key, value, flag };
         let index = self.index(entry.key);
         self.table[index] = Some(entry);
     }
@@ -127,9 +120,8 @@ mod tests {
             key: 3,
             value: eval::Eval::MIN,
             flag: Flag::UPPERBOUND,
-            bestmove: 0,
         };
-        table.put(entry.key, entry.value, entry.flag, entry.bestmove);
+        table.put(entry.key, entry.value, entry.flag);
         assert_eq!(table.get(3), Some(entry));
         assert_eq!(table.get(14), None);
 
@@ -137,9 +129,8 @@ mod tests {
             key: 8,
             value: eval::Eval::MAX,
             flag: Flag::LOWERBOUND,
-            bestmove: 3,
         };
-        table.put(entry.key, entry.value, entry.flag, entry.bestmove);
+        table.put(entry.key, entry.value, entry.flag);
         assert_eq!(table.get(8), Some(entry));
         assert_eq!(table.get(30), None);
 
@@ -147,9 +138,8 @@ mod tests {
             key: 19,
             value: eval::Eval::MAX,
             flag: Flag::LOWERBOUND,
-            bestmove: 3,
         };
-        table.put(entry.key, entry.value, entry.flag, entry.bestmove);
+        table.put(entry.key, entry.value, entry.flag);
         assert_eq!(table.get(19), Some(entry));
         assert_eq!(table.get(8), None);
     }
@@ -163,25 +153,22 @@ mod tests {
             key: 3,
             value: eval::Eval::MIN,
             flag: Flag::UPPERBOUND,
-            bestmove: 0,
         };
-        table.put(entry.key, entry.value, entry.flag, entry.bestmove);
+        table.put(entry.key, entry.value, entry.flag);
 
         let entry = Entry {
             key: 8,
             value: eval::Eval::MAX,
             flag: Flag::LOWERBOUND,
-            bestmove: 3,
         };
-        table.put(entry.key, entry.value, entry.flag, entry.bestmove);
+        table.put(entry.key, entry.value, entry.flag);
 
         let entry = Entry {
             key: 19,
             value: eval::Eval::MAX,
             flag: Flag::LOWERBOUND,
-            bestmove: 3,
         };
-        table.put(entry.key, entry.value, entry.flag, entry.bestmove);
+        table.put(entry.key, entry.value, entry.flag);
 
         assert_eq!(table.count(), 2);
     }

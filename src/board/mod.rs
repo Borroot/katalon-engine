@@ -305,6 +305,12 @@ impl Board {
         self.movecount == 0
     }
 
+    /// Return whether the provided square is full.
+    pub fn isfull(&self, square: u8) -> bool {
+        let mask_square = 0b11111 << square * 5;
+        self.mask & mask_square == mask_square
+    }
+
     /// Return the square constraint.
     pub fn square(&self) -> Option<u8> {
         match self.lastmove {

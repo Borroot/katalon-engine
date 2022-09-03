@@ -105,12 +105,13 @@ fn run_set(name: String, entries: Vec<Entry>) -> Result<Bench, ()> {
 }
 
 fn main() {
+    #[rustfmt::skip]
     let names = [
         "depth25",
         "depth20",
         "depth15",
         "depth10",
-        "depth05",
+        "depth05"
     ];
 
     let mut benches = Vec::<Bench>::new();

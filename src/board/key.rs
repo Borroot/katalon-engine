@@ -23,8 +23,7 @@ impl super::Board {
     // TODO test whether it is more efficient to just always include the square
     fn lastmove_square(&self) -> bool {
         let (_, cell) = self.lastmove.unwrap();
-        let mask_square = 0b11111 << cell * 5;
-        return self.mask & mask_square == mask_square;
+        self.isfull(cell)
     }
 
     /// Map the state or mask to the given symmetry.

@@ -29,10 +29,7 @@ pub fn bestmoves_with_stats(
 }
 
 /// Return all of the best moves if finished within the specified time.
-pub fn bestmoves(
-    node: &board::Board,
-    timeout: std::time::Duration,
-) -> Result<Vec<(u8, u8)>, ()> {
+pub fn bestmoves(node: &board::Board, timeout: std::time::Duration) -> Result<Vec<(u8, u8)>, ()> {
     // If there is only one possible move we immediately return this move.
     let moves = node.moves();
     if moves.len() == 1 {

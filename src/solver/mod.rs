@@ -8,7 +8,7 @@ mod table;
 
 // Make these function visible as e.g. solver::bestmoves.
 pub use best::{bestmoves, bestmoves_with_stats};
-pub use eval::{eval, eval_with_stats};//, eval_all};
+pub use eval::{eval, eval_with_stats}; //, eval_all};
 
 /// A player directed by the negamax algorithm.
 pub struct Solver;

@@ -97,37 +97,40 @@ pub fn eval(
         ));
     }
 
-    let moves = node.moves();
-    // TODO sort the moves based on iterative deepening results
-    // TODO add a table which saves the order of children nodes
-    // TODO killer heuristic
+    // Generate and sort the moves. Put cells that go to full squares up front.
+    let mut moves = node.moves();
+    moves.sort_by(|(_s1, c1), (_s2, _c2)| match node.isfull(*c1) {
+        true => std::cmp::Ordering::Greater,
+        false => std::cmp::Ordering::Less,
+    });
 
-    let mut best = eval::Eval::MIN;
+    // Do the search recursive over all the child nodes.
+    let mut value = eval::Eval::MIN;
 
     for (square, cell) in moves {
         let mut child = node.clone();
         child.play(square, cell);
 
-        best = std::cmp::max(best, -eval(&child, -beta, -alpha, negamax)?);
+        value = std::cmp::max(value, -eval(&child, -beta, -alpha, negamax)?);
 
-        alpha = std::cmp::max(alpha, best);
+        alpha = std::cmp::max(alpha, value);
         if alpha >= beta {
             break;
         }
     }
 
+    // Save the current state and the evaluation in the table.
     let flag = {
-        if best <= alpha_original {
+        if value <= alpha_original {
             table::Flag::UPPERBOUND
-        } else if best >= beta {
+        } else if value >= beta {
             table::Flag::LOWERBOUND
         } else {
             table::Flag::EXACT
         }
     };
+    let table_value = value.relative(negamax.rootcount, node.movecount());
+    negamax.table.put(node.key(), table_value, flag);
 
-    let table_best = best.relative(negamax.rootcount, node.movecount());
-    negamax.table.put(node.key(), table_best, flag, 0); // TODO add bestmove
-
-    Ok(best)
+    Ok(value)
 }
