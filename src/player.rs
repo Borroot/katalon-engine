@@ -2,7 +2,6 @@ use crate::board;
 use Players::*;
 
 pub trait Player {
-    // TODO maybe refactor to just be a function pointer
     fn play(&self, board: &board::Board) -> (u8, u8);
 }
 

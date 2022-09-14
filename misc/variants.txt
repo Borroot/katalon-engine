@@ -4,14 +4,16 @@ Evaluation functions
 - MTD(f)
 - Negascout?
 
-Search functions
-1. Pure negamax
-2. 1. + alpha beta pruning
-3. 2. + transposition table
-4. 3. + bestmove table
-5. 4. + move sorting (prefer full squares)
-6. 5. + symmetry checking at low depths
-7. 6. + opening table
+Search function characteristics
+- Pure negamax
+- Alpha beta pruning
+- Transposition table
+- Bestmove table (killer heuristic)
+- Move sorting (prefer full squares)
+- Lastmove square sometimes in key
+- Symmetry checking at low depths
+- Opening table
+- Parallelisation
 
 Opening table
 - Up to depth 10 there are 269810 unique states.

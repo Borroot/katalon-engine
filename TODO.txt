@@ -1,0 +1,5 @@
+- Symmetry checking
+- Parallelisation
+- Openingstable
+- Monte carlo tree search
+- Generate solution for every single state

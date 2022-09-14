@@ -20,7 +20,6 @@ impl super::Board {
 
     /// Indiciate whether the square of the lastmove should be in the key.
     /// This is the case if the square we need to move into next is full.
-    // TODO test whether it is more efficient to just always include the square
     fn lastmove_square(&self) -> bool {
         let (_, cell) = self.lastmove.unwrap();
         self.isfull(cell)

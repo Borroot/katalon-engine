@@ -50,11 +50,13 @@ fn best(
     let mut bestmoves: Vec<(u8, u8)> = Vec::new();
     let mut max = eval::Eval::MIN;
 
-    let moves = node.moves();
-    // TODO sort the moves
+    let mut moves = node.moves();
+    moves.sort_by(|(_s1, c1), (_s2, _c2)| match node.isfull(*c1) {
+        true => std::cmp::Ordering::Greater,
+        false => std::cmp::Ordering::Less,
+    });
 
-    // TODO add parallelization
-    // TODO add iterative deepening and null window search
+    // TODO IMPORTANT add a form of the MTD(f) search
     for &(square, cell) in &moves {
         let mut child = node.clone();
         child.play(square, cell);

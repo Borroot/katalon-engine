@@ -53,7 +53,6 @@ impl Table {
     }
 
     fn index(&self, key: u64) -> usize {
-        // TODO test key hashing for a more uniform distribution, e.g. seahash
         (key % self.table.len() as u64) as usize
     }
 

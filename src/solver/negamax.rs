@@ -26,7 +26,7 @@ impl Negamax {
             recv_timeout,
             rootcount,
             rootplayer,
-            // TODO make gb adaptive to movecount
+            // TODO make gb adaptive to movecount and available ram
             table: table::Table::from_gb(1.0),
             stats: search::Stats::new(),
         }
@@ -73,7 +73,6 @@ pub fn eval(
     negamax.stats.visited += 1;
     let alpha_original = alpha;
 
-    // TODO also check symmetries if depth is low and make a seperate hashmap for low movecount evaluations.
     // Check if we have already seen this node before.
     if let Some(entry) = negamax.table.get(node.key()) {
         let table_value = entry.value.absolute(negamax.rootcount, node.movecount());
