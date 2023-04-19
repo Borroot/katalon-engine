@@ -105,7 +105,8 @@ impl super::Board {
     }
 
     /// Create a board from a key. Note that no checks on correctness are made.
-    pub fn from_key(mut key: u64, movecount: i16) -> Self {
+    /// Important: the movecount is set to 0 if no moves are made and 1 otherwise.
+    pub fn from_key(mut key: u64) -> Self {
         let mut board = Self::new();
 
         // Return early if the board is empty (this is neccessary because of lastmove).
@@ -139,7 +140,7 @@ impl super::Board {
         board.onturn = player::Players::from_index(key as usize).expect("Onturn should be 0 or 1.");
 
         // Set the movecount.
-        board.movecount = movecount;
+        board.movecount = if board.mask == 0 { 0 } else { 1 };
 
         // Count the number of stones a player has left, by counting the number of stones placed.
         let count_stones = |state: u32| {
@@ -289,7 +290,7 @@ mod tests {
     /// Test creation of a board from the zero key.
     #[test]
     fn from_key_zero() {
-        let board = Board::from_key(0, 0);
+        let board = Board::from_key(0);
         assert_eq!(board.key(), 0);
     }
 
@@ -298,7 +299,7 @@ mod tests {
     fn from_key_many() {
         for _ in 0..10000 {
             let board_orig = Board::random();
-            let board_copy = Board::from_key(board_orig.key(), board_orig.movecount);
+            let board_copy = Board::from_key(board_orig.key());
 
             assert_eq!(board_orig.key(), board_copy.key());
 

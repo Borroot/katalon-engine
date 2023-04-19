@@ -1,18 +1,54 @@
 use katalon::board;
 use std::collections::HashSet;
+use std::io::{Read, Write};
+use std::iter::FromIterator;
+use std::convert::TryInto;
 
 fn main() {
     //for depth in 1..=12 {
     //    stats(depth);
     //}
 
-    let depth = board::Board::MOVECOUNT_LIMIT as usize;
-    //let depth = 20;
+    //let depth = board::Board::MOVECOUNT_LIMIT as usize;
+    let depth = 2;
 
     let mut states = HashSet::<u64>::new();
     backtrack(board::Board::new(), depth, &mut states);
 
     println!("count unique  = {}", states.len());
+
+    save(&states);
+    let loaded_states = load();
+}
+
+/// Load the states from a file in little endian order into a hashset.
+fn load() -> HashSet<u64> {
+    let mut file = std::fs::File::open("states.txt").expect("File could not be opened.");
+    let mut bytes = Vec::<u8>::new();
+
+    file.read_to_end(&mut bytes)
+        .expect("File could not be read.");
+
+    let mut states = HashSet::<u64>::new();
+    for chunk in bytes.chunks_exact(8) {
+        states.insert(u64::from_le_bytes(chunk.try_into().unwrap()));
+    }
+
+    states
+}
+
+/// Save the states from the hashset in a file in little endian order.
+fn save(states: &HashSet<u64>) {
+    let mut states = Vec::from_iter(states);
+    states.sort();
+
+    let mut bytes = Vec::with_capacity(8 * states.len());
+    for state in states {
+        bytes.extend(&state.to_le_bytes());
+    }
+
+    let mut file = std::fs::File::create("states.txt").expect("File could not be created.");
+    file.write_all(&bytes).expect("File could not be written.");
 }
 
 /// Go through all the unique states of the board till the given depth and add
