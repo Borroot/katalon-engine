@@ -12,6 +12,14 @@ pub enum Players {
 }
 
 impl Players {
+    pub fn from_index(index: usize) -> Result<Players, ()> {
+        match index {
+            0 => Ok(Player1),
+            1 => Ok(Player2),
+            _ => Err(()),
+        }
+    }
+
     pub fn other(&self) -> Players {
         match self {
             Player1 => Player2,

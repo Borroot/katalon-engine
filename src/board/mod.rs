@@ -1,4 +1,5 @@
-use crate::player;
+use crate::{player, player::Player, random};
+use rand::Rng;
 
 mod key;
 
@@ -45,7 +46,7 @@ pub struct Board {
     onturn: player::Players,
 
     /// The number of stones left for the players (player1, player2).
-    /// Both players start with 12 stones.
+    /// Both players start with NUMBER_OF_STONES stones.
     stones: [u8; 2],
 
     /// The last move that was made (square, cell). Used to get the square
@@ -68,6 +69,9 @@ impl Board {
     /// An upperbound on the maximum number of moves that can be made in a game.
     pub const MOVECOUNT_LIMIT: i16 = (21 - 7) * Self::TAKESTREAK_LIMIT as i16;
 
+    /// The number of stones each player starts with.
+    pub const NUMBER_OF_STONES: u8 = 12;
+
     /// Create a new empty board.
     pub fn new() -> Self {
         Self {
@@ -75,7 +79,7 @@ impl Board {
             mask: 0,
 
             onturn: player::Players::Player1,
-            stones: [12, 12],
+            stones: [Self::NUMBER_OF_STONES, Self::NUMBER_OF_STONES],
 
             lastmove: None,
             takestreak: 0,
@@ -123,6 +127,24 @@ impl Board {
             }
         }
         return Ok(board);
+    }
+
+    /// Create a random board position which may or may not be game over.
+    pub fn random() -> Self {
+        let mut rng = rand::thread_rng();
+        let player = random::Random;
+
+        let mut board = Self::new();
+
+        for _ in 0..rng.gen_range(0..=Board::MOVECOUNT_LIMIT) {
+            let (square, cell) = player.play(&board);
+            board.play(square, cell);
+
+            if board.isover() != None {
+                break;
+            }
+        }
+        board
     }
 
     /// Return Some((square, cell)) if double cell is given, otherwise return None.

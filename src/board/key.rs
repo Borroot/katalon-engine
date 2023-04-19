@@ -1,3 +1,5 @@
+use crate::player;
+
 impl super::Board {
     /// All the mappings for symmetrical boards.
     #[rustfmt::skip]
@@ -100,6 +102,68 @@ impl super::Board {
         }
 
         keys
+    }
+
+    /// Create a board from a key. Note that no checks on correctness are made.
+    pub fn from_key(mut key: u64, movecount: i16) -> Self {
+        let mut board = Self::new();
+
+        // Return early if the board is empty (this is neccessary because of lastmove).
+        if key == 0 {
+            return board;
+        }
+
+        // Read all the bits from right to left (LSB to MSB).
+        // 1 bit onturn + 7 bits takestreak + 6 bits lastmove + 25 bits mask + 25 bits state
+
+        // Load the state.
+        board.state = (key & u64::pow(2, 25) - 1) as u32;
+        key >>= 25;
+
+        // Load the mask.
+        board.mask = (key & u64::pow(2, 25) - 1) as u32;
+        key >>= 25;
+
+        // Load the lastmove.
+        let cell = (key & u64::pow(2, 3) - 1) as u8;
+        key >>= 3;
+        let square = (key & u64::pow(2, 3) - 1) as u8;
+        key >>= 3;
+        board.lastmove = Some((square, cell));
+
+        // Load the takestreak.
+        board.takestreak = (key & u64::pow(2, 7) - 1) as u8;
+        key >>= 7;
+
+        // Load the onturn.
+        board.onturn = player::Players::from_index(key as usize).expect("Onturn should be 0 or 1.");
+
+        // Set the movecount.
+        board.movecount = movecount;
+
+        // Count the number of stones a player has left, by counting the number of stones placed.
+        let count_stones = |state: u32| {
+            let mut count = state.count_ones() as u8;
+            // Stones at the double positions are counted double...
+            let doubles = [
+                0b0000000000100000000000000,
+                0b0000000000010000000000000,
+                0b0000000000000100000000000,
+                0b0000000000000010000000000,
+            ];
+            for double in doubles {
+                if state & double > 0 {
+                    count -= 1;
+                }
+            }
+            Self::NUMBER_OF_STONES - count
+        };
+
+        // Deduce the number of stones each player has left.
+        board.stones[board.onturn as usize] = count_stones(board.state);
+        board.stones[1 ^ board.onturn as usize] = count_stones(board.state ^ board.mask);
+
+        board
     }
 }
 
@@ -220,5 +284,32 @@ mod tests {
             keys2[4],
             0b10000000__000_000__00000_00000_00001_00000_10000__00000_00000_00000_00000_00000
         );
+    }
+
+    /// Test creation of a board from the zero key.
+    #[test]
+    fn from_key_zero() {
+        let board = Board::from_key(0, 0);
+        assert_eq!(board.key(), 0);
+    }
+
+    /// Test creation of a board from a key.
+    #[test]
+    fn from_key_many() {
+        for _ in 0..10000 {
+            let board_orig = Board::random();
+            let board_copy = Board::from_key(board_orig.key(), board_orig.movecount);
+
+            assert_eq!(board_orig.key(), board_copy.key());
+
+            assert_eq!(
+                board_orig.stones[0], board_copy.stones[0],
+                "player X stone count"
+            );
+            assert_eq!(
+                board_orig.stones[1], board_copy.stones[1],
+                "player O stone count"
+            );
+        }
     }
 }

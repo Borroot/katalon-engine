@@ -2,9 +2,17 @@ use katalon::board;
 use std::collections::HashSet;
 
 fn main() {
-    for depth in 0..=12 {
-        stats(depth);
-    }
+    //for depth in 1..=12 {
+    //    stats(depth);
+    //}
+
+    let depth = board::Board::MOVECOUNT_LIMIT as usize;
+    //let depth = 20;
+
+    let mut states = HashSet::<u64>::new();
+    backtrack(board::Board::new(), depth, &mut states);
+
+    println!("count unique  = {}", states.len());
 }
 
 /// Go through all the unique states of the board till the given depth and add
